@@ -20,7 +20,7 @@ and 1.27.2. The pb33f dependencies are pinned in `go.mod`: `libopenapi` v0.41.6 
     make example    # drive bin/humbug from the Python example client
 
 `humbug` speaks NDJSON on stdin/stdout (one command per line, one reply per command); stderr
-is for process diagnostics only. See `docs/protocol.md` for the protocol as implemented `docs/client-guide.md` for
+is for process diagnostics only. See `docs/protocol.md` for the protocol as implemented, `docs/client-guide.md` for
 writing a client, and `docs/versioning.md` for what may change.
 
     humbug [flags]   # --max-line-bytes, --max-body-bytes, --max-nesting-depth, --max-headers,
