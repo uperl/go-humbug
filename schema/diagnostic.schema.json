@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://humbug.invalid/schema/diagnostic.schema.json",
+  "$id": "https://raw.githubusercontent.com/uperl/go-humbug/main/schema/diagnostic.schema.json",
   "title": "Humbug diagnostic and transaction result (protocol v1)",
   "$ref": "#/$defs/result",
   "$defs": {

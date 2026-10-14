@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,8 +13,8 @@ import (
 
 const (
 	schemaDir      = "../../schema"
-	protocolSchema = "https://humbug.invalid/schema/protocol.schema.json"
-	diagSchema     = "https://humbug.invalid/schema/diagnostic.schema.json"
+	protocolSchema = "https://raw.githubusercontent.com/uperl/go-humbug/main/schema/protocol.schema.json"
+	diagSchema     = "https://raw.githubusercontent.com/uperl/go-humbug/main/schema/diagnostic.schema.json"
 )
 
 var (
@@ -23,8 +24,17 @@ var (
 	schemaErr  error
 )
 
+// noNetwork refuses every load. Both schemas are registered up front, so a reference that is not
+// found among them must fail the test instead of being downloaded from the schema's real URL.
+type noNetwork struct{}
+
+func (noNetwork) Load(url string) (any, error) {
+	return nil, fmt.Errorf("the tests must not fetch %q (is its $id registered?)", url)
+}
+
 func loadSchemas() {
 	c := jsonschema.NewCompiler()
+	c.UseLoader(noNetwork{})
 	for _, f := range []struct{ file, url string }{
 		{"protocol.schema.json", protocolSchema},
 		{"diagnostic.schema.json", diagSchema},

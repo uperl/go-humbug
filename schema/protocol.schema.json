@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://humbug.invalid/schema/protocol.schema.json",
+  "$id": "https://raw.githubusercontent.com/uperl/go-humbug/main/schema/protocol.schema.json",
   "title": "Humbug Protocol v1 messages",
   "description": "A command (client to sidecar) or a reply (sidecar to client); one per NDJSON line.",
   "oneOf": [{"$ref": "#/$defs/command"}, {"$ref": "#/$defs/reply"}],

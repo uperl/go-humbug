@@ -47,6 +47,8 @@ Supports the **OpenAPI 3.1** line, 3.1.0 and its patch releases (other versions 
 
 `schema/protocol.schema.json` and `schema/diagnostic.schema.json` are normative; tests validate
 every reply against them. `docs/protocol.md` and `docs/diagnostics.md` describe the behavior.
+Their `$id` values are the raw GitHub URLs of the files on `main`; the tests register both schemas
+up front and refuse any network access, so nothing is ever fetched.
 
 ## Known gaps
 
