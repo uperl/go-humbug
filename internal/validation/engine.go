@@ -28,6 +28,33 @@ import (
 // logger sends library diagnostics to stderr; stdout carries protocol traffic only.
 var logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
+// SupportedVersions lists the OpenAPI versions Humbug supports and tests. Documents declaring any
+// other version are rejected at load: validating them under 3.1 semantics would silently
+// misreport (3.0 differs in nullable, exclusiveMinimum and more). Extend this list only together
+// with fixtures for the new version.
+var SupportedVersions = []string{"3.1.0"}
+
+// UnsupportedVersionError is returned by Load for a document whose `openapi` version is not in
+// SupportedVersions.
+type UnsupportedVersionError struct{ Version string }
+
+func (e *UnsupportedVersionError) Error() string {
+	v := e.Version
+	if len(v) > 40 {
+		v = v[:40] + "..."
+	}
+	return fmt.Sprintf("OpenAPI version %q is not supported (supported: %s)", v, strings.Join(SupportedVersions, ", "))
+}
+
+func versionSupported(v string) bool {
+	for _, s := range SupportedVersions {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
 // SpecError is returned by Load when the specification cannot be used.
 type SpecError struct{ Err error }
 
@@ -67,6 +94,9 @@ func Load(path string) (*Engine, error) {
 	})
 	if err != nil {
 		return nil, &SpecError{err}
+	}
+	if v := doc.GetSpecInfo().Version; !versionSupported(v) {
+		return nil, &UnsupportedVersionError{Version: v}
 	}
 	model, err := doc.BuildV3Model()
 	if err != nil {

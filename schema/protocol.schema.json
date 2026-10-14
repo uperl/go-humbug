@@ -142,7 +142,7 @@
         "code": {"enum": [
           "protocol.invalid_message", "protocol.unsupported_version", "protocol.unknown_command",
           "protocol.not_initialized", "protocol.already_initialized", "protocol.line_too_long",
-          "spec.invalid", "validator.unsupported_input", "validator.internal"
+          "spec.invalid", "spec.unsupported_version", "validator.unsupported_input", "validator.internal"
         ]},
         "message": {"type": "string"}
       }

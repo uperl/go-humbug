@@ -22,6 +22,9 @@ and 1.27.2. The pb33f dependencies are pinned in `go.mod`: `libopenapi` v0.41.6 
 `humbug` speaks NDJSON on stdin/stdout (one command per line, one reply per command); stderr
 is for process diagnostics only. See `docs/protocol.md` for the protocol as implemented.
 
+Supports **OpenAPI 3.1.0** (other versions are rejected at `initialize`; see
+`docs/protocol.md`).
+
 ## Layout
 
     cmd/humbug/           executable

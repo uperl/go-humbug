@@ -32,6 +32,7 @@ const (
 	ErrAlreadyInit        = "protocol.already_initialized"
 	ErrLineTooLong        = "protocol.line_too_long"
 	ErrSpecInvalid        = "spec.invalid"
+	ErrSpecUnsupportedVer = "spec.unsupported_version"
 	ErrUnsupportedInput   = "validator.unsupported_input"
 	ErrInternal           = "validator.internal"
 )
@@ -217,6 +218,10 @@ func (s *Server) initialize(id json.RawMessage, raw json.RawMessage) reply {
 		return errReply(id, ErrUnsupportedVersion, fmt.Sprintf("protocol version %d is not supported; this sidecar speaks %d", *p.ProtocolVersion, Version))
 	}
 	v, info, err := s.Load(p.Spec.Path)
+	var unsupported *validation.UnsupportedVersionError
+	if errors.As(err, &unsupported) {
+		return errReply(id, ErrSpecUnsupportedVer, unsupported.Error())
+	}
 	if err != nil {
 		// A failed initialization leaves the process uninitialized; the client may retry.
 		return errReply(id, ErrSpecInvalid, "specification could not be loaded: "+err.Error())

@@ -32,6 +32,23 @@ header pairs, and the error/result split are as in the draft.
    `diagnostics` array. Only the first composition level is grouped. Anything unrecognized is
    `validation.unclassified` with `detail.validation_type/validation_sub_type`.
 
+## Supported OpenAPI versions
+
+**OpenAPI 3.1.0 is the supported version.** It is the version the first target application uses,
+and the only one with fixtures. Other versions can be added later if needed.
+
+`initialize` rejects any other declared `openapi` version with `spec.unsupported_version`, naming
+the supported versions, and leaves the process uninitialized (the client may retry with another
+specification). This includes 3.0.x, 3.1.1 and later 3.1 patch releases, 3.2.x, and Swagger 2.0.
+The pinned library will load several of them, and an earlier build did, but they differ from 3.1.0
+(for example `nullable` and boolean `exclusiveMinimum` in 3.0), so validating them under the same
+assumptions would silently misreport. A document with no version, or one the library cannot read,
+is `spec.invalid`.
+
+The version a specification declares is returned by `initialize` as
+`specification.openapi_version`. The supported list is `validation.SupportedVersions`; extend it
+only together with fixtures for the new version.
+
 ## Process behavior
 
 - stdout carries protocol replies only. Library logging (pb33f logs reference errors) goes to
@@ -208,4 +225,4 @@ well under a second.
 - Array and object header parameters sent empty are left to the library, which treats empty as absent.
 - `Set-Cookie` response headers are validated per line by the library; Humbug does not parse cookie
   attributes.
-- 3.0 is covered by one transaction test (`nullable`, boolean `exclusiveMinimum`) only.
+- Only OpenAPI 3.1.0 is supported or tested (see "Supported OpenAPI versions").
