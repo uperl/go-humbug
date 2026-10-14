@@ -26,7 +26,6 @@
         },
         "message": "value matched more than one oneOf branch",
         "schema": {
-          "line": 1,
           "pointer": "/oneOf",
           "relative": true
         },

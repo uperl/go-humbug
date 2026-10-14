@@ -27,7 +27,6 @@
         },
         "message": "body at /qty is not allowed by the schema",
         "schema": {
-          "line": 1,
           "pointer": "/allOf/0/$ref/additionalProperties",
           "relative": true
         },
@@ -57,7 +56,6 @@
         },
         "message": "body at /qty violates schema keyword \"type\"",
         "schema": {
-          "line": 1,
           "pointer": "/allOf/1/properties/qty/type",
           "relative": true
         },

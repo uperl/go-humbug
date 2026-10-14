@@ -32,7 +32,6 @@
         },
         "message": "value matched none of the oneOf branches",
         "schema": {
-          "line": 1,
           "pointer": "/oneOf",
           "relative": true
         },
@@ -59,7 +58,6 @@
         "message": "body violates schema keyword \"additionalProperties\"",
         "parent": "d1",
         "schema": {
-          "line": 1,
           "pointer": "/oneOf/0/$ref/additionalProperties",
           "relative": true
         },
@@ -87,7 +85,6 @@
         "message": "body is missing required properties",
         "parent": "d1",
         "schema": {
-          "line": 1,
           "pointer": "/oneOf/0/$ref/required",
           "relative": true
         },
@@ -114,7 +111,6 @@
         "message": "body violates schema keyword \"additionalProperties\"",
         "parent": "d1",
         "schema": {
-          "line": 1,
           "pointer": "/oneOf/1/$ref/additionalProperties",
           "relative": true
         },
@@ -142,7 +138,6 @@
         "message": "body is missing required properties",
         "parent": "d1",
         "schema": {
-          "line": 1,
           "pointer": "/oneOf/1/$ref/required",
           "relative": true
         },

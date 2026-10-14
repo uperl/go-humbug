@@ -30,7 +30,6 @@
         },
         "message": "body is missing required properties",
         "schema": {
-          "line": 1,
           "pointer": "/allOf/0/$ref/required",
           "relative": true
         },
@@ -56,7 +55,6 @@
         },
         "message": "body at /extra is not allowed by the schema",
         "schema": {
-          "line": 1,
           "pointer": "/allOf/0/$ref/additionalProperties",
           "relative": true
         },
@@ -82,7 +80,6 @@
         },
         "message": "body at /qty is not allowed by the schema",
         "schema": {
-          "line": 1,
           "pointer": "/allOf/0/$ref/additionalProperties",
           "relative": true
         },

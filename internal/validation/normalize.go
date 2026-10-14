@@ -259,7 +259,8 @@ func (n *normalizer) schemaFailures(e *verrors.ValidationError) {
 	}
 	groups := map[string]*group{}
 	var order []string
-	root := &d.SchemaRef{Line: posLine(e), Column: posCol(e), Relative: true}
+	line, col := schemaPos(e)
+	root := &d.SchemaRef{Line: line, Column: col, Relative: true}
 
 	for _, f := range e.SchemaValidationErrors {
 		ptr := pointerOf(f.InstancePath)
@@ -433,8 +434,16 @@ func describe(ptr string) string {
 	return "body at " + ptr
 }
 
-func posLine(e *verrors.ValidationError) int { return max(e.SpecLine, 0) }
-func posCol(e *verrors.ValidationError) int  { return max(e.SpecCol, 0) }
+// schemaPos is the position of the root schema in the specification, or 0, 0 when the library did
+// not resolve it. For a root schema made of oneOf, anyOf or allOf it reports line 1 and no column,
+// which would point at the first line of the document rather than at the schema, so a location is
+// given only when both parts are real.
+func schemaPos(e *verrors.ValidationError) (line, col int) {
+	if e.SpecLine < 1 || e.SpecCol < 1 {
+		return 0, 0
+	}
+	return e.SpecLine, e.SpecCol
+}
 
 func locKey(i *d.Instance) string {
 	if i == nil {

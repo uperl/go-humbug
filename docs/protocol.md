@@ -10,7 +10,9 @@ header pairs, and the error/result split are as in the draft.
    `has_violations`, and `valid` (= `complete && !has_violations`). The transaction repeats
    `complete`, `has_violations`, `valid` over the sides that were requested. If a side has
    violations *and* could not finish, `status` is `invalid` and `complete` is `false`. A side that
-   was not requested is `skipped` with `complete: true`.
+   was not requested is `skipped` with `complete: true`
+   and `valid: false`: nothing was checked, so it is never reported as valid (the formula above
+   applies to sides that were checked).
 2. **Re-initialize.** A failed `initialize` leaves the process uninitialized and may be retried.
    After a successful one, a second `initialize` gets `protocol.already_initialized`.
 3. **Flags.** `validate.request` defaults to true; `validate.response` defaults to true iff a
