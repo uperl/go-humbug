@@ -26,6 +26,21 @@ import (
 // Humbug never checks that content is valid for its format (VCL, CSV, ...). A schema cannot say
 // that, so "valid" means "conforms to the OpenAPI contract".
 
+// libraryDecodes reports whether the validation library decodes and validates a body of this
+// media type itself: XML and URL-encoded forms, enabled in Load. (Its IsXMLContentType helper also
+// matches +xml types, but no decoder is registered for them, so they are not validated.)
+func libraryDecodes(contentType string) bool {
+	mt, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return false
+	}
+	switch mt {
+	case "application/xml", "text/xml", "application/x-www-form-urlencoded":
+		return true
+	}
+	return false
+}
+
 // operationFor returns the operation for method on a path item, or nil.
 func operationFor(pi *v3.PathItem, method string) *v3.Operation {
 	return map[string]*v3.Operation{
@@ -40,6 +55,12 @@ func operationFor(pi *v3.PathItem, method string) *v3.Operation {
 func (e *Engine) inspectNonJSON(n *normalizer, op *v3.Operation, status int, headers []Header, body []byte) {
 	ct := contentType(headers)
 	if !n.hasBody || isJSON(ct) || op == nil {
+		return
+	}
+	if libraryDecodes(ct) {
+		// The library validated this body. Its findings carry the decoded field path as the
+		// pointer, but there is no JSON text to point into, so no span.
+		n.decoded = true
 		return
 	}
 	content := contentFor(op, n.who == d.SideRequest, status)

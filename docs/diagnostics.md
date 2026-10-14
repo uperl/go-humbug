@@ -23,7 +23,9 @@ diagnostics (`validation.incomplete`) explain why a side is `complete: false` an
 | `parameter.required` | Required query/header/path/cookie parameter missing | `location`, `name` |
 | `parameter.invalid` | Parameter present but fails its schema (including array items). `detail.empty` is `"true"` when a header parameter was sent empty | `location`, `name` |
 | `body.required` | Operation requires a body and none was supplied (absent, not empty) | `body` |
-| `body.decode` | Body present but not decodable (malformed JSON, or empty) | `body`, zero-width `span` at the parse error |
+| `body.decode` | Body present but not decodable (malformed JSON, or empty). For XML and URL-encoded bodies, `detail.media_type` names the type and the message never quotes the payload | `body`, zero-width `span` at the parse error (JSON only) |
+| `body.xml.prefix` | An XML element's namespace prefix is missing or differs from the schema's `xml.prefix` | `body` |
+| `body.xml.namespace` | An XML element's namespace is missing or differs from the schema's `xml.namespace` | `body` |
 | `body.undeclared` | A body was sent where the matched operation declares no content for it: a request with no `requestBody`, or a response (such as a `204`) whose definition has no content. **Warning**, not a violation; `detail.media_type` has the sent type when there was one | `body` |
 | `body.media_type` | Content-Type not defined for the operation | `header` `Content-Type` |
 | `response.status` | Status code not defined for the operation | `status` |
@@ -41,7 +43,8 @@ diagnostics (`validation.incomplete`) explain why a side is `complete: false` an
 `detail.limit_bytes` and `detail.body_bytes`), `body.too_deep` (a JSON body exceeds the nesting limit;
 `detail.limit_depth`; see "Limits" in `protocol.md`), `body.not_inspected` (a non-JSON body whose
 schema Humbug cannot check as a string, or a body with no usable Content-Type; `detail.media_type`
-has the type),
+has the type), `body.xml_root_unnamed` (an XML body whose root schema has no `xml.name`;
+`detail.media_type`),
 `body.charset_unsupported` (a text body declared in a charset other than UTF-8 or US-ASCII;
 `detail.charset`), `operation.not_found` and `operation.method_not_allowed` (response side could
 not be routed).
@@ -75,7 +78,14 @@ case-insensitive.
 | Declared with no schema | Any content conforms: valid and complete |
 | `type: string` (or untyped and unstructured) | The body is a string and the string keywords (`minLength`, `maxLength`, `pattern`, `enum`, …) apply; violations are `schema.<keyword>` |
 | `type: string, format: binary` | Raw bytes: length keywords count bytes, not characters |
-| Object, array or composition (form, XML, multipart) | Not parsed: `incomplete`, reason `body.not_inspected` |
+| `application/xml` or `text/xml`, any schema whose root declares `xml.name` | Decoded and validated by the library; violations are `schema.<keyword>` with a field `pointer` and no `span` |
+| `application/xml` or `text/xml`, root schema without `xml.name` | Not validated: `incomplete`, reason `body.xml_root_unnamed` (see "Known library limitations" in `protocol.md`) |
+| `application/x-www-form-urlencoded` | Decoded and validated by the library; violations are `schema.<keyword>` with a field `pointer` and no `span`; undecodable input is `body.decode` |
+| Object, array or composition under any other type (multipart, `+xml` such as `application/soap+xml`) | Not parsed: `incomplete`, reason `body.not_inspected` |
+
+XML and form findings have a `pointer` (the field path, such as `/age` or `/profile/n`) but no
+`span`: there is no JSON text to point into, even when the body happens to be valid JSON. Request
+and response bodies are both validated.
 
 Text bodies must be valid UTF-8 (`body.decode`, `detail.utf8_offset` is the first bad byte); a
 charset other than UTF-8 or US-ASCII is `incomplete`. These diagnostics have no `pointer` or `span`:

@@ -32,7 +32,7 @@
         "message": "body at /profile is missing required properties",
         "schema": {
           "column": 7,
-          "line": 248,
+          "line": 306,
           "pointer": "/properties/profile/required",
           "relative": true
         },

@@ -110,7 +110,7 @@ func LoadWithLimits(path string, lim limits.Limits) (*Engine, error) {
 	if model == nil {
 		return nil, &SpecError{errors.New("could not build OpenAPI model")}
 	}
-	v, verrs := validator.NewValidator(doc, config.WithLogger(logger))
+	v, verrs := validator.NewValidator(doc, config.WithLogger(logger), config.WithXmlBodyValidation(), config.WithURLEncodedBodyValidation())
 	if len(verrs) > 0 {
 		return nil, &SpecError{errors.Join(verrs...)}
 	}
@@ -197,14 +197,8 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 		}
 	}
 
-	// A body over a limit is never handed to the library: its side is reported incomplete instead
-	// (see bodyLimit). Bodies are the already-decoded HTTP bodies; Content-Encoding headers are
-	// preserved and passed through but never acted on, since Humbug does not decompress anything.
-	reqSkip := e.bodyLimit(p.Request.Body, p.Request.Headers)
-	var resSkip *bodySkip
-	if p.ValidateResponse && p.Response != nil {
-		resSkip = e.bodyLimit(p.Response.Body, p.Response.Headers)
-	}
+	// Bodies are the already-decoded HTTP bodies; Content-Encoding headers are preserved and passed
+	// through but never acted on, since Humbug does not decompress anything.
 
 	// Routing, and response validation, need only the request line and headers, never its body.
 	routeMsg := p.Request
@@ -224,6 +218,14 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 		}
 	}
 
+	// A body the library must not see (over a limit, or XML it cannot unwrap) is never handed to
+	// it: its side is reported incomplete instead (see skipReason).
+	reqSkip := e.skipReason(op, true, 0, p.Request.Body, p.Request.Headers)
+	var resSkip *bodySkip
+	if p.ValidateResponse && p.Response != nil {
+		resSkip = e.skipReason(op, false, p.Response.Status, p.Response.Body, p.Response.Headers)
+	}
+
 	if p.ValidateRequest {
 		msg := p.Request
 		if reqSkip != nil {
@@ -236,6 +238,7 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 		_, errs := e.v.ValidateHttpRequest(vreq)
 		n := newNormalizer(diagnostics.SideRequest, bodyBytes(msg.Body), msg.Body != nil, e.model)
 		n.skipped = reqSkip
+		n.mediaType = mediaTypeOf(p.Request.Headers)
 		if op != nil {
 			n.decls = requestHeaderDecls(pi, op)
 			errs = e.emptyHeaderParams(n, p.Request.Headers, errs)
@@ -257,6 +260,7 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 		_, errs := e.v.ValidateHttpResponse(req2, resp)
 		n := newNormalizer(diagnostics.SideResponse, bodyBytes(msg.Body), msg.Body != nil, e.model)
 		n.skipped = resSkip
+		n.mediaType = mediaTypeOf(p.Response.Headers)
 		if op != nil {
 			n.decls = responseHeaderDecls(op, p.Response.Status)
 			n.warnRepeated(p.Response.Headers)

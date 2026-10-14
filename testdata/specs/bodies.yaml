@@ -1,0 +1,167 @@
+openapi: 3.1.0
+info: {title: XML and form body probes, version: "1"}
+# Used by TestXMLFormLibraryBehavior, which pins how the pinned pb33f version treats XML and
+# URL-encoded bodies (docs/protocol.md, "Known library limitations"). Every XML root schema
+# declares xml.name, which the library needs in order to unwrap the root element.
+paths:
+  /xml/user:
+    post:
+      requestBody:
+        content:
+          application/xml:
+            schema:
+              type: object
+              xml: {name: user}
+              required: [name]
+              properties:
+                name: {type: string, minLength: 1}
+                age: {type: integer, minimum: 0}
+                active: {type: boolean}
+                score: {type: number}
+                tags: {type: array, items: {type: string}}
+          text/xml:
+            schema:
+              type: object
+              xml: {name: user}
+              required: [name]
+              properties:
+                name: {type: string, minLength: 1}
+                age: {type: integer, minimum: 0}
+      responses:
+        '200':
+          description: ok
+          content:
+            application/xml:
+              schema:
+                type: object
+                xml: {name: user}
+                required: [name]
+                properties:
+                  name: {type: string, minLength: 1}
+                  age: {type: integer, minimum: 0}
+  /xml/unnamed:
+    post:
+      requestBody:
+        content:
+          application/xml:
+            schema: {type: object, required: [name], properties: {name: {type: string}}}
+          text/xml:
+            schema: {type: object, required: [name], properties: {name: {type: string}}}
+      responses:
+        '200':
+          description: ok
+          content:
+            application/xml:
+              schema: {type: object, required: [name], properties: {name: {type: string}}}
+  /xml/attr:
+    post:
+      requestBody:
+        content:
+          application/xml:
+            schema:
+              type: object
+              xml: {name: User}
+              required: [id]
+              properties:
+                id: {type: integer, xml: {attribute: true}}
+                name: {type: string}
+      responses: {'204': {description: ok}}
+  /xml/wrapped:
+    post:
+      requestBody:
+        content:
+          application/xml:
+            schema:
+              type: object
+              xml: {name: r}
+              properties:
+                items:
+                  type: array
+                  xml: {wrapped: true}
+                  items: {type: string, xml: {name: item}}
+      responses: {'204': {description: ok}}
+  /xml/ns:
+    post:
+      requestBody:
+        content:
+          application/xml:
+            schema:
+              type: object
+              xml: {name: r, namespace: 'http://example.com/schema', prefix: ex}
+              properties:
+                name: {type: string}
+      responses: {'204': {description: ok}}
+  /xml/nsprop:
+    post:
+      requestBody:
+        content:
+          application/xml:
+            schema:
+              type: object
+              xml: {name: r}
+              properties:
+                title:
+                  type: object
+                  xml: {namespace: 'http://example.com/schema', prefix: ex}
+                  properties:
+                    text: {type: string}
+      responses: {'204': {description: ok}}
+  /xml/soap:
+    post:
+      requestBody:
+        content:
+          application/soap+xml:
+            schema:
+              type: object
+              xml: {name: user}
+              properties:
+                name: {type: string}
+      responses: {'204': {description: ok}}
+  /xml/jsononly:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses: {'204': {description: ok}}
+  /form/user:
+    post:
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string, minLength: 1}
+                age: {type: integer, minimum: 0}
+                active: {type: boolean}
+                score: {type: number}
+                tags: {type: array, items: {type: string}}
+      responses:
+        '200':
+          description: ok
+          content:
+            application/x-www-form-urlencoded:
+              schema:
+                type: object
+                required: [name]
+                properties:
+                  name: {type: string, minLength: 1}
+                  age: {type: integer, minimum: 0}
+  /form/enc:
+    post:
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                tags: {type: array, items: {type: string}}
+                profile:
+                  type: object
+                  properties: {bio: {type: string}, n: {type: integer}}
+            encoding:
+              tags: {style: form, explode: false}
+              profile: {style: deepObject, explode: true}
+      responses: {'204': {description: ok}}

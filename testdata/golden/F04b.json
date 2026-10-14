@@ -32,7 +32,7 @@
         "message": "body at /profile violates schema keyword \"type\"",
         "schema": {
           "column": 7,
-          "line": 248,
+          "line": 306,
           "pointer": "/properties/profile/type",
           "relative": true
         },

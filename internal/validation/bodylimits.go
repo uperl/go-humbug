@@ -1,6 +1,12 @@
 package validation
 
-import "strconv"
+import (
+	"mime"
+	"strconv"
+	"strings"
+
+	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
+)
 
 // bodySkip says why a body is not inspected.
 type bodySkip struct {
@@ -57,4 +63,48 @@ func exceedsDepth(b []byte, max int) bool {
 		}
 	}
 	return false
+}
+
+// skipReason combines every reason a body must not be handed to the library: the resource limits,
+// and XML it cannot unwrap.
+func (e *Engine) skipReason(op *v3.Operation, request bool, status int, body *[]byte, headers []Header) *bodySkip {
+	if s := e.bodyLimit(body, headers); s != nil {
+		return s
+	}
+	return xmlRootSkip(op, request, status, body, headers)
+}
+
+// xmlRootSkip handles XML bodies whose root schema does not declare xml.name. The library turns an
+// XML document into JSON by wrapping it in its root element (`<user>...</user>` becomes
+// {"user": {...}}) and removes that wrapper only when the schema's xml.name names the root. Without
+// xml.name the document stays wrapped and every body fails (`required` first), so valid XML would
+// be reported as a violation. Humbug reports the body as not inspected instead; declaring
+// `xml: {name: <root element>}` on the root schema makes it inspectable.
+func xmlRootSkip(op *v3.Operation, request bool, status int, body *[]byte, headers []Header) *bodySkip {
+	if body == nil || op == nil {
+		return nil
+	}
+	mt := mediaTypeOf(headers)
+	if mt != "application/xml" && mt != "text/xml" {
+		return nil
+	}
+	media := matchMedia(contentFor(op, request, status), mt)
+	if media == nil || media.Schema == nil {
+		return nil // not declared (the library reports it) or declared without a schema
+	}
+	sch := media.Schema.Schema()
+	if sch == nil || (sch.XML != nil && sch.XML.Name != "") {
+		return nil
+	}
+	return &bodySkip{"body.xml_root_unnamed", map[string]string{"media_type": mt}}
+}
+
+// mediaTypeOf returns the lower-cased media type of the Content-Type header, without parameters,
+// or "" when there is none or it is unusable.
+func mediaTypeOf(headers []Header) string {
+	mt, _, err := mime.ParseMediaType(contentType(headers))
+	if err != nil {
+		return ""
+	}
+	return strings.ToLower(mt)
 }

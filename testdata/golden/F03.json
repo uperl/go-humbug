@@ -28,7 +28,7 @@
         "message": "body at /age violates schema keyword \"minimum\"",
         "schema": {
           "column": 7,
-          "line": 248,
+          "line": 306,
           "pointer": "/properties/age/minimum",
           "relative": true
         },
@@ -59,7 +59,7 @@
         "message": "body at /email violates schema keyword \"type\"",
         "schema": {
           "column": 7,
-          "line": 248,
+          "line": 306,
           "pointer": "/properties/email/type",
           "relative": true
         },
@@ -86,7 +86,7 @@
         "message": "body at /name violates schema keyword \"minLength\"",
         "schema": {
           "column": 7,
-          "line": 248,
+          "line": 306,
           "pointer": "/properties/name/minLength",
           "relative": true
         },

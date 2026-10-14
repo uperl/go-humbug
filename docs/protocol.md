@@ -300,6 +300,32 @@ should adapt to.
   without `explode`; simple-style path and header objects; cookies, including quoted values; an
   encoded slash inside one path segment; and array-level constraints for non-exploded and
   pipe-delimited query arrays.
+- **XML and URL-encoded form bodies are validated through the library's opt-in decoders**
+  (`application/xml`, `text/xml`, `application/x-www-form-urlencoded`; requests and responses).
+  Humbug works around two library defects and accepts several leniencies. Everything below is
+  pinned by `TestXMLFormLibraryBehavior` (94 cases on `testdata/specs/bodies.yaml`, each recording
+  what OpenAPI says and what the library does) and fails when an upgrade changes it.
+  - **The root schema needs `xml.name`.** The library turns a document into JSON by wrapping it in
+    its root element and removes the wrapper only when `xml.name` is set, so otherwise every body
+    fails, valid ones included. Humbug does not hand such a body to the library: the side is
+    `incomplete`, reason `body.xml_root_unnamed`. Declare `xml: {name: <root element>}` on the root
+    schema to have it inspected. `TestLibraryStillNeedsAnXMLRootName` fails when the library is fixed,
+    the cue to remove the workaround.
+  - **The library's `reservedValues` finding is dropped.** It applies its `allowReserved` check to
+    the decoded value, so it flags every correctly percent-encoded reserved character
+    (`a%40b.com`). Humbug ignores it, which means an *unencoded* reserved character is accepted.
+    `TestLibraryStillFlagsEncodedReservedCharacters` fails when the library is fixed.
+  - **Lenient, not masked** (the library accepts what OpenAPI would reject): booleans `1` and
+    `TRUE`; an element where the schema says attribute; an XML namespace on the root element; a
+    repeated scalar form field; a non-UTF-8 form value; an empty form body (treated as absent).
+  - **Entities are safe.** External entities, internal entities and entity expansion are rejected,
+    and an external DTD is ignored and never fetched (tested with a local server that must see no
+    request).
+  - **Cost.** Memory and time are roughly 20 to 75 times the body size, bounded by the 16 MiB body
+    limit. The JSON depth limit does not apply to XML, so XML nesting is limited only by that body
+    limit.
+  - **Not inspected:** `+xml` types (`application/soap+xml`, ...) have no decoder in the library and
+    stay `incomplete`, reason `body.not_inspected`. Multipart stays deferred (below).
 - **Trailing and doubled slashes are routed** to the path without them (see "Routing", where this
   is listed as a deviation from what the protocol expects).
 - **Custom HTTP methods are not supported (deferred, decided).** OpenAPI 3.1 cannot declare them:
@@ -323,9 +349,9 @@ should adapt to.
 
 - Missing-property names are only filled when unambiguous (not inside `oneOf`/`anyOf` branches).
 - Non-JSON bodies are checked only when their schema is a string (see `diagnostics.md`, "Non-JSON
-  bodies"). Form, XML and multipart bodies under object schemas currently stay `incomplete`.
-  Planned (decided, not yet implemented): support XML and URL-encoded form bodies through the
-  library's opt-in decoders. **Multipart is deferred (decided)**: the library's multipart decoder
+  bodies"). XML and URL-encoded form bodies are validated by the library's decoders, with the
+  caveats under "Known library limitations". Multipart bodies and `+xml` types under object
+  schemas stay `incomplete`. **Multipart is deferred (decided)**: the library's multipart decoder
   only reads form field values and ignores per-part content types, encodings and files, so it
   is not worth enabling yet. Format validity (for example VCL syntax) is never checked.
 - **Security requirements are deferred (decided).** `security.*` codes are in the taxonomy but are

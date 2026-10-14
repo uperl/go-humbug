@@ -34,6 +34,8 @@ type normalizer struct {
 	incomplet bool
 	noSpans   bool                  // body is not JSON: findings carry no pointer or span
 	sentCT    bool                  // the message carried a Content-Type header
+	decoded   bool                  // XML or form body: findings keep their field path as pointer but have no span
+	mediaType string                // lower-cased media type of this side's body, for diagnostics
 	skipped   *bodySkip             // the body exceeded a limit and was not handed to the library
 	decls     map[string]headerDecl // declared headers by lower-cased name
 }
@@ -163,6 +165,26 @@ func (n *normalizer) one(e *verrors.ValidationError) {
 			n.unclassified(e)
 		}
 
+	case (typ == "xmlValidation" || typ == "urlEncodedValidation") && sub == "schema":
+		n.decodeFailed()
+
+	case typ == "urlEncodedValidation" && sub == "reservedValues":
+		// DROPPED ON PURPOSE. The library applies its allowReserved check to the *decoded* value, so
+		// it reports every correctly percent-encoded reserved character (a%40b.com, an ordinary email
+		// address, is flagged as if the @ were raw). It cannot tell the two apart, so the finding is
+		// unreliable and would be a false violation on ordinary data. The cost is that an unencoded
+		// reserved character is accepted. TestLibraryStillFlagsEncodedReservedCharacters fails when the
+		// library is fixed, which is the cue to remove this case. See docs/protocol.md.
+		return
+
+	case typ == "xmlValidation" && sub == "prefix":
+		n.addDedup(d.Diagnostic{Code: d.CodeBodyXMLPrefix, Instance: &d.Instance{Location: "body"},
+			Message: "an XML namespace prefix does not match the one the schema declares"}, "")
+
+	case typ == "xmlValidation" && sub == "namespace":
+		n.addDedup(d.Diagnostic{Code: d.CodeBodyXMLNamespace, Instance: &d.Instance{Location: "body"},
+			Message: "an XML namespace does not match the one the schema declares"}, "")
+
 	case typ == "response" && sub == "statusCode":
 		n.add(d.Diagnostic{Code: d.CodeResponseStatus, Instance: &d.Instance{Location: "status"},
 			Message: "response status code is not defined for this operation"})
@@ -193,7 +215,22 @@ func (n *normalizer) unclassified(e *verrors.ValidationError) {
 		Detail: map[string]string{"validation_type": e.ValidationType, "validation_sub_type": e.ValidationSubType}})
 }
 
+// decodeFailed reports a body the library could not decode (malformed XML, a broken form). The
+// library's own messages quote the payload, so none of it is used.
+func (n *normalizer) decodeFailed() {
+	detail := map[string]string{}
+	if n.mediaType != "" {
+		detail["media_type"] = n.mediaType
+	}
+	n.addDedup(d.Diagnostic{Code: d.CodeBodyDecode, Instance: &d.Instance{Location: "body"}, Detail: detail,
+		Message: "body could not be decoded as " + n.mediaType}, "")
+}
+
 func (n *normalizer) decodeFailure(e *verrors.ValidationError) {
+	if n.decoded {
+		n.decodeFailed() // not JSON: there is no JSON position to report
+		return
+	}
 	if !n.hasBody {
 		n.add(d.Diagnostic{Code: d.CodeBodyRequired, Instance: &d.Instance{Location: "body"},
 			Message: n.who + " has no body but the operation requires one"})
@@ -323,6 +360,9 @@ func (n *normalizer) bodyInstance(ptr string, missingProp bool, miss []string) *
 	inst := &d.Instance{Location: "body", Pointer: ptr, Missing: miss}
 	if n.noSpans {
 		inst.Pointer = ""
+		return inst
+	}
+	if n.decoded {
 		return inst
 	}
 	ix, err := n.index()
@@ -503,8 +543,11 @@ func (n *normalizer) applySkip() {
 	}
 	n.diags = kept
 	msg := "body was not inspected: it exceeds the size limit"
-	if n.skipped.reason == "body.too_deep" {
+	switch n.skipped.reason {
+	case "body.too_deep":
 		msg = "body was not inspected: its JSON nesting exceeds the depth limit"
+	case "body.xml_root_unnamed":
+		msg = "XML body was not inspected: its root schema does not declare xml.name (the root element name)"
 	}
 	n.incomplete(n.skipped.reason, n.skipped.detail, msg)
 }

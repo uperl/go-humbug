@@ -1,0 +1,39 @@
+{
+  "complete": true,
+  "has_violations": true,
+  "operation": {
+    "method": "POST",
+    "operation_id": "postXml",
+    "path": "/xml"
+  },
+  "request": {
+    "complete": true,
+    "diagnostics": [
+      {
+        "code": "body.decode",
+        "detail": {
+          "media_type": "application/xml"
+        },
+        "id": "d1",
+        "instance": {
+          "location": "body"
+        },
+        "message": "body could not be decoded as application/xml",
+        "severity": "error",
+        "side": "request",
+        "suppressed_by": null
+      }
+    ],
+    "has_violations": true,
+    "status": "invalid",
+    "valid": false
+  },
+  "response": {
+    "complete": true,
+    "diagnostics": [],
+    "has_violations": false,
+    "status": "skipped",
+    "valid": false
+  },
+  "valid": false
+}

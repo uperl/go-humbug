@@ -365,7 +365,7 @@ func TestNonJSONResponseBodies(t *testing.T) {
 
 func TestNonJSONSchemaShapes(t *testing.T) {
 	r := run(t, init0(),
-		validate(2, putRaw("/form", "application/x-www-form-urlencoded", []byte("a=1"), "POST"), "", ""),
+		validate(2, putRaw("/multipart", "multipart/form-data; boundary=x", []byte("--x\r\n\r\n--x--"), "POST"), "", ""),
 		validate(3, putRaw("/anycsv", "text/csv", []byte("a,b\n1,2"), "POST"), "", ""),
 		validate(4, putRaw("/wild", "text/vcl", []byte("abcde"), "POST"), "", ""),
 		validate(5, putRaw("/wild", "text/vcl", []byte("abcdef"), "POST"), "", ""),
@@ -374,7 +374,7 @@ func TestNonJSONSchemaShapes(t *testing.T) {
 	)
 	form := sideOf(result(t, r[1]), "request")
 	if form["status"] != "incomplete" || len(reasonsOf(form)) != 1 || reasonsOf(form)[0] != "body.not_inspected" {
-		t.Errorf("structured schema under a non-JSON type must stay incomplete: %v", form)
+		t.Errorf("structured schema under a type the library does not decode (multipart) must stay incomplete: %v", form)
 	}
 	if res := result(t, r[2]); res["valid"] != true || res["complete"] != true {
 		t.Errorf("declared without a schema, any content conforms: %v", res)

@@ -242,6 +242,64 @@ paths:
                 - {$ref: '#/components/schemas/Email'}
                 - {$ref: '#/components/schemas/Phone'}
       responses: {'204': {description: ok}}
+  /multipart:
+    post:
+      operationId: postMultipart
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: {type: object, properties: {a: {type: string}}}
+      responses: {'204': {description: ok}}
+  /form-typed:
+    post:
+      operationId: postFormTyped
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string, minLength: 1}
+                age: {type: integer, minimum: 0}
+                tags: {type: array, items: {type: string}}
+      responses: {'204': {description: ok}}
+  /xml:
+    post:
+      operationId: postXml
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              type: object
+              xml: {name: user}
+              required: [name]
+              properties:
+                name: {type: string, minLength: 1}
+                age: {type: integer, minimum: 0}
+      responses:
+        '200':
+          description: ok
+          content:
+            application/xml:
+              schema:
+                type: object
+                xml: {name: user}
+                required: [name]
+                properties:
+                  name: {type: string, minLength: 1}
+  /xml-unnamed:
+    post:
+      operationId: postXmlUnnamed
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema: {type: object, properties: {name: {type: string}}}
+      responses: {'204': {description: ok}}
 components:
   schemas:
     NewUser:

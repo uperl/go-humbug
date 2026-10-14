@@ -570,8 +570,8 @@
  },
  {
   "id": "F39",
-  "desc": "form body under an object schema stays incomplete",
-  "expect": "incomplete",
+  "desc": "form body is decoded and validated by the library",
+  "expect": "valid",
   "req": {
    "method": "POST",
    "url": "/form",
@@ -733,6 +733,137 @@
   "res": {
    "status": 200,
    "headers": {}
+  }
+ },
+ {
+  "id": "F50",
+  "desc": "multipart body: structured and not parsed, so not inspected",
+  "expect": "incomplete",
+  "req": {
+   "method": "POST",
+   "url": "/multipart",
+   "headers": {
+    "Content-Type": "multipart/form-data; boundary=x"
+   },
+   "body": "--x\r\n\r\n--x--"
+  }
+ },
+ {
+  "id": "F51",
+  "desc": "XML request and response, valid (root schema declares xml.name)",
+  "expect": "valid",
+  "req": {
+   "method": "POST",
+   "url": "/xml",
+   "headers": {
+    "Content-Type": "application/xml"
+   },
+   "body": "<user><name>Ann</name><age>3</age></user>"
+  },
+  "res": {
+   "status": 200,
+   "headers": {
+    "Content-Type": "application/xml"
+   },
+   "body": "<user><name>Ann</name></user>"
+  }
+ },
+ {
+  "id": "F52",
+  "desc": "XML request with a wrong type: the finding points at the element",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/xml",
+   "headers": {
+    "Content-Type": "application/xml"
+   },
+   "body": "<user><name>Ann</name><age>x</age></user>"
+  }
+ },
+ {
+  "id": "F53",
+  "desc": "malformed XML is a decode finding",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/xml",
+   "headers": {
+    "Content-Type": "application/xml"
+   },
+   "body": "<user><name>Ann</name>"
+  }
+ },
+ {
+  "id": "F54",
+  "desc": "XML whose root schema has no xml.name is not inspected",
+  "expect": "incomplete",
+  "req": {
+   "method": "POST",
+   "url": "/xml-unnamed",
+   "headers": {
+    "Content-Type": "application/xml"
+   },
+   "body": "<user><name>Ann</name></user>"
+  }
+ },
+ {
+  "id": "F55",
+  "desc": "XML response body violates its schema",
+  "expect": "response-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/xml",
+   "headers": {
+    "Content-Type": "application/xml"
+   },
+   "body": "<user><name>Ann</name></user>"
+  },
+  "res": {
+   "status": 200,
+   "headers": {
+    "Content-Type": "application/xml"
+   },
+   "body": "<user><age>3</age></user>"
+  }
+ },
+ {
+  "id": "F56",
+  "desc": "form body with a wrong type and an empty required value",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/form-typed",
+   "headers": {
+    "Content-Type": "application/x-www-form-urlencoded"
+   },
+   "body": "name=&age=x"
+  }
+ },
+ {
+  "id": "F57",
+  "desc": "malformed percent-encoding is a decode finding",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/form-typed",
+   "headers": {
+    "Content-Type": "application/x-www-form-urlencoded"
+   },
+   "body": "name=%zz"
+  }
+ },
+ {
+  "id": "F58",
+  "desc": "a percent-encoded reserved character (an email address) is valid",
+  "expect": "valid",
+  "req": {
+   "method": "POST",
+   "url": "/form-typed",
+   "headers": {
+    "Content-Type": "application/x-www-form-urlencoded"
+   },
+   "body": "name=a%40b.com"
   }
  }
 ]
