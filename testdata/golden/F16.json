@@ -20,18 +20,19 @@
           "location": "body",
           "pointer": "/age",
           "span": {
-            "column": 21,
-            "end": 23,
-            "end_column": 24,
+            "column": 15,
+            "end": 19,
+            "end_column": 20,
             "end_line": 1,
             "line": 1,
-            "start": 20
+            "part": "key",
+            "start": 14
           }
         },
         "message": "body at /age violates schema keyword \"type\"",
         "schema": {
           "column": 7,
-          "line": 236,
+          "line": 248,
           "pointer": "/properties/age/type",
           "relative": true
         },
@@ -62,13 +63,14 @@
             "end_column": 13,
             "end_line": 1,
             "line": 1,
+            "part": "value",
             "start": 0
           }
         },
         "message": "body is missing required properties",
         "schema": {
           "column": 7,
-          "line": 247,
+          "line": 259,
           "pointer": "/required",
           "relative": true
         },
@@ -87,18 +89,19 @@
           "location": "body",
           "pointer": "/id",
           "span": {
-            "column": 7,
-            "end": 11,
-            "end_column": 12,
+            "column": 2,
+            "end": 5,
+            "end_column": 6,
             "end_line": 1,
             "line": 1,
-            "start": 6
+            "part": "key",
+            "start": 1
           }
         },
         "message": "body at /id violates schema keyword \"type\"",
         "schema": {
           "column": 7,
-          "line": 247,
+          "line": 259,
           "pointer": "/properties/id/type",
           "relative": true
         },

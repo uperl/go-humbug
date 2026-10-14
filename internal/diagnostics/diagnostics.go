@@ -50,14 +50,16 @@ const (
 )
 
 type Span struct {
-	Start      int  `json:"start"`
-	End        int  `json:"end"`
-	Line       int  `json:"line"`
-	Column     int  `json:"column"`
-	EndLine    int  `json:"end_line"`
-	EndColumn  int  `json:"end_column"`
-	Contextual bool `json:"contextual,omitempty"` // span is the closest existing parent, not the offending token
-	Ambiguous  bool `json:"ambiguous,omitempty"`  // duplicate member names made the mapping ambiguous
+	Start     int `json:"start"`
+	End       int `json:"end"`
+	Line      int `json:"line"`
+	Column    int `json:"column"`
+	EndLine   int `json:"end_line"`
+	EndColumn int `json:"end_column"`
+	// Part says what the span covers: "key" (a member name), "value", or "position" (a parse error).
+	Part       string `json:"part"`
+	Contextual bool   `json:"contextual,omitempty"` // span is the closest existing parent, not the offending token
+	Ambiguous  bool   `json:"ambiguous,omitempty"`  // duplicate member names made the mapping ambiguous
 }
 
 type Instance struct {

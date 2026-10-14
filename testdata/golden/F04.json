@@ -19,19 +19,20 @@
           ],
           "pointer": "/profile",
           "span": {
-            "column": 33,
+            "column": 23,
             "contextual": true,
-            "end": 34,
-            "end_column": 35,
+            "end": 31,
+            "end_column": 32,
             "end_line": 1,
             "line": 1,
-            "start": 32
+            "part": "key",
+            "start": 22
           }
         },
         "message": "body at /profile is missing required properties",
         "schema": {
           "column": 7,
-          "line": 236,
+          "line": 248,
           "pointer": "/properties/profile/required",
           "relative": true
         },

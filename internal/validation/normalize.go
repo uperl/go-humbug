@@ -202,7 +202,7 @@ func (n *normalizer) decodeFailure(e *verrors.ValidationError) {
 		var pe *sourcemap.ParseError
 		if errors.As(err, &pe) {
 			diag.Message = "body is not well-formed JSON"
-			diag.Instance.Span = &d.Span{Start: pe.Offset, End: pe.Offset, Line: pe.Line, Column: pe.Column, EndLine: pe.Line, EndColumn: pe.Column}
+			diag.Instance.Span = &d.Span{Start: pe.Offset, End: pe.Offset, Line: pe.Line, Column: pe.Column, EndLine: pe.Line, EndColumn: pe.Column, Part: "position"}
 			diag.Detail = map[string]string{"parser": pe.Msg}
 		}
 	}
@@ -256,8 +256,30 @@ func (n *normalizer) schemaFailures(e *verrors.ValidationError) {
 				Message: "value matched more than one oneOf branch"}, "")
 			continue
 		}
+		if lastSeg(f.KeywordLocation) == "additionalProperties" && n.additionalMembers(f, ptr, root) {
+			continue
+		}
 		n.leaf(f, root)
 	}
+}
+
+// additionalMembers reports each property rejected by additionalProperties as its own finding,
+// pointing at that member (so the highlighted span is the offending name). It returns false when
+// the rejected names cannot be determined with certainty (for example across composition
+// branches, where several additionalProperties constraints apply at one location), and the caller
+// falls back to one finding for the object.
+func (n *normalizer) additionalMembers(f *verrors.SchemaValidationFailure, ptr string, root *d.SchemaRef) bool {
+	names := additionalNames(f.OriginalJsonSchemaError, f.InstancePath)
+	if len(names) == 0 {
+		return false
+	}
+	for _, name := range names {
+		member := ptr + "/" + sourcemap.Escape(name)
+		n.addDedup(d.Diagnostic{Code: d.CodeSchemaPrefix + "additional_properties", Instance: n.bodyInstance(member, false, nil),
+			Schema:  &d.SchemaRef{Pointer: f.KeywordLocation, Relative: true, Line: root.Line, Column: root.Column},
+			Message: fmt.Sprintf("%s is not allowed by the schema", describe(member))}, "")
+	}
+	return true
 }
 
 func (n *normalizer) patch(id string, fn func(*d.Diagnostic)) {
@@ -305,9 +327,11 @@ func (n *normalizer) bodyInstance(ptr string, missingProp bool, miss []string) *
 	if err != nil {
 		return inst
 	}
-	if s, amb, exact, ok := ix.Nearest(ptr); ok {
+	// The span highlights the member name when the pointer addresses an object member (the
+	// value otherwise: the root, an array element). A missing property highlights its parent.
+	if s, part, amb, exact, ok := ix.Target(ptr); ok {
 		inst.Span = &d.Span{Start: s.Start, End: s.End, Line: s.Line, Column: s.Column, EndLine: s.EndLine, EndColumn: s.EndColumn,
-			Contextual: !exact || missingProp, Ambiguous: amb}
+			Part: part, Contextual: !exact || missingProp, Ambiguous: amb}
 	}
 	return inst
 }
@@ -491,4 +515,27 @@ func typeInfo(e *jsonschema.ValidationError, at []string) (want []string, got st
 		return nil, "", false
 	}
 	return found[0].Want, found[0].Got, true
+}
+
+// additionalNames collects the rejected property names from the single kind.AdditionalProperties
+// node at the given instance location. Returns nil when there is none or more than one.
+func additionalNames(e *jsonschema.ValidationError, at []string) []string {
+	var found [][]string
+	var walk func(*jsonschema.ValidationError)
+	walk = func(x *jsonschema.ValidationError) {
+		if x == nil {
+			return
+		}
+		if k, ok := x.ErrorKind.(*kind.AdditionalProperties); ok && reflect.DeepEqual(nilToEmpty(x.InstanceLocation), nilToEmpty(at)) {
+			found = append(found, k.Properties)
+		}
+		for _, c := range x.Causes {
+			walk(c)
+		}
+	}
+	walk(e)
+	if len(found) != 1 {
+		return nil
+	}
+	return found[0]
 }

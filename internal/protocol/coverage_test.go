@@ -45,8 +45,11 @@ func TestDuplicateKeysAreMarkedAmbiguous(t *testing.T) {
 	}
 	inst := ds[0].(obj)["instance"].(obj)
 	sp := inst["span"].(obj)
-	if inst["pointer"] != "/age" || sp["ambiguous"] != true || spanText(t, body, inst) != `"x"` {
+	if inst["pointer"] != "/age" || sp["ambiguous"] != true || sp["part"] != "key" || spanText(t, body, inst) != `"age"` {
 		t.Errorf("instance: %v", inst)
+	}
+	if want := strings.LastIndex(string(body), `"age"`); int(sp["start"].(float64)) != want {
+		t.Errorf("duplicate key: span starts at %v, want the last occurrence at %d", sp["start"], want)
 	}
 }
 
@@ -61,7 +64,7 @@ func TestLargeBody(t *testing.T) {
 		t.Errorf("large valid body: %v", result(t, r[1]))
 	}
 	inst := sideOf(result(t, r[2]), "request")["diagnostics"].([]any)[0].(obj)["instance"].(obj)
-	if inst["pointer"] != "/age" || spanText(t, bad, inst) != `"x"` || inst["span"].(obj)["start"].(float64) < size {
+	if inst["pointer"] != "/age" || spanText(t, bad, inst) != `"age"` || inst["span"].(obj)["start"].(float64) < size {
 		t.Errorf("span in large body: %v", inst)
 	}
 	if d := time.Since(start); d > 30*time.Second {
@@ -81,7 +84,7 @@ func TestContentEncodingHeaderIsIgnored(t *testing.T) {
 			t.Errorf("%s: decoded body must validate normally: %v", enc, res)
 		}
 		d := diagsOf(result(t, r[2]), "request")
-		if len(d) != 1 || d[0]["code"] != "schema.type" || spanText(t, bad, d[0]["instance"].(obj)) != `"x"` {
+		if len(d) != 1 || d[0]["code"] != "schema.type" || spanText(t, bad, d[0]["instance"].(obj)) != `"age"` {
 			t.Errorf("%s: span must refer to the supplied bytes: %v", enc, d)
 		}
 	}

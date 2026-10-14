@@ -16,10 +16,12 @@ header pairs, and the error/result split are as in the draft.
 3. **Flags.** `validate.request` defaults to true; `validate.response` defaults to true iff a
    response was supplied. `validate.response: true` without a response, or both flags false,
    is `protocol.invalid_message`. Request method and absolute URL are always required.
-4. **Spans.** Value spans for the instance pointer; for a missing property or an unmapped
-   pointer, the closest existing ancestor with `contextual: true`. Duplicate member names set
-   `ambiguous: true` and report the last occurrence. Malformed JSON gives `body.decode` with a
-   zero-width span at the parser's error offset (`detail.parser` has the parser message).
+4. **Spans.** A span highlights the member **name** (key) when the pointer addresses an object
+   member, and the value when there is no name (the root, array elements); `span.part` says
+   which (`key`, `value`). For a missing property or an unmapped pointer, the closest existing
+   ancestor is highlighted with `contextual: true`. Duplicate member names set `ambiguous: true`
+   and report the last occurrence. Malformed JSON gives `body.decode` with a zero-width span
+   (`part: "position"`) at the parser's error offset (`detail.parser` has the parser message).
 5. **Limits.** Command lines over 256 MiB get `protocol.line_too_long`. Header handling is
    described under "Headers" below; there are no header count or size caps beyond the line limit.
 6. **Schema locations.** `schema.pointer` is relative to the root schema of the validated

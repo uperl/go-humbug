@@ -77,9 +77,9 @@
     },
     "span": {
       "type": "object",
-      "required": ["start", "end", "line", "column", "end_line", "end_column"],
+      "required": ["start", "end", "line", "column", "end_line", "end_column", "part"],
       "additionalProperties": false,
-      "description": "Bytes of the original decoded body. Offsets zero-based, end exclusive; lines/columns one-based, columns in UTF-8 bytes.",
+      "description": "Bytes of the original decoded body. For a pointer that addresses an object member the span is the member NAME (part key); for the root and array elements it is the value (part value). Offsets zero-based, end exclusive; lines/columns one-based, columns in UTF-8 bytes.",
       "properties": {
         "start": {"type": "integer", "minimum": 0},
         "end": {"type": "integer", "minimum": 0},
@@ -87,6 +87,7 @@
         "column": {"type": "integer", "minimum": 1},
         "end_line": {"type": "integer", "minimum": 1},
         "end_column": {"type": "integer", "minimum": 1},
+        "part": {"enum": ["key", "value", "position"], "description": "What the span covers: the member name (key), the value (the root, an array element), or a parse-error position"},
         "contextual": {"const": true, "description": "Closest existing ancestor, not the offending token"},
         "ambiguous": {"const": true, "description": "Duplicate member names; the last occurrence is reported"}
       }

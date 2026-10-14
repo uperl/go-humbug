@@ -39,12 +39,13 @@
           "location": "body",
           "pointer": "/1/id",
           "span": {
-            "column": 28,
-            "end": 30,
-            "end_column": 31,
+            "column": 23,
+            "end": 26,
+            "end_column": 27,
             "end_line": 1,
             "line": 1,
-            "start": 27
+            "part": "key",
+            "start": 22
           }
         },
         "message": "body at /1/id violates schema keyword \"type\"",

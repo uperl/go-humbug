@@ -20,18 +20,19 @@
           "location": "body",
           "pointer": "/age",
           "span": {
-            "column": 10,
-            "end": 36,
-            "end_column": 18,
+            "column": 3,
+            "end": 26,
+            "end_column": 8,
             "end_line": 3,
             "line": 3,
-            "start": 28
+            "part": "key",
+            "start": 21
           }
         },
         "message": "body at /age violates schema keyword \"type\"",
         "schema": {
           "column": 7,
-          "line": 236,
+          "line": 248,
           "pointer": "/properties/age/type",
           "relative": true
         },

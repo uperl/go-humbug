@@ -31,13 +31,14 @@
             "end_column": 15,
             "end_line": 1,
             "line": 1,
+            "part": "value",
             "start": 0
           }
         },
         "message": "body is missing required properties",
         "schema": {
           "column": 7,
-          "line": 247,
+          "line": 259,
           "pointer": "/required",
           "relative": true
         },
@@ -56,18 +57,19 @@
           "location": "body",
           "pointer": "/id",
           "span": {
-            "column": 7,
-            "end": 13,
-            "end_column": 14,
+            "column": 2,
+            "end": 5,
+            "end_column": 6,
             "end_line": 1,
             "line": 1,
-            "start": 6
+            "part": "key",
+            "start": 1
           }
         },
         "message": "body at /id violates schema keyword \"type\"",
         "schema": {
           "column": 7,
-          "line": 247,
+          "line": 259,
           "pointer": "/properties/id/type",
           "relative": true
         },

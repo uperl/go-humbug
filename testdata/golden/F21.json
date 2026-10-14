@@ -14,16 +14,18 @@
         "id": "d1",
         "instance": {
           "location": "body",
+          "pointer": "/qty",
           "span": {
-            "column": 1,
-            "end": 28,
-            "end_column": 29,
+            "column": 16,
+            "end": 20,
+            "end_column": 21,
             "end_line": 1,
             "line": 1,
-            "start": 0
+            "part": "key",
+            "start": 15
           }
         },
-        "message": "body violates schema keyword \"additionalProperties\"",
+        "message": "body at /qty is not allowed by the schema",
         "schema": {
           "line": 1,
           "pointer": "/allOf/0/$ref/additionalProperties",
@@ -44,12 +46,13 @@
           "location": "body",
           "pointer": "/qty",
           "span": {
-            "column": 22,
-            "end": 27,
-            "end_column": 28,
+            "column": 16,
+            "end": 20,
+            "end_column": 21,
             "end_line": 1,
             "line": 1,
-            "start": 21
+            "part": "key",
+            "start": 15
           }
         },
         "message": "body at /qty violates schema keyword \"type\"",

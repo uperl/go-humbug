@@ -85,6 +85,32 @@ func (ix *Index) Nearest(pointer string) (s Span, ambiguous, exact, ok bool) {
 	}
 }
 
+// Part says which token of the document a span covers.
+const (
+	PartKey   = "key"   // the member name, quotes included
+	PartValue = "value" // the value (the root, an array element, or any non-member)
+)
+
+// Target returns the span to highlight for pointer: the member name when the pointer addresses an
+// object member, otherwise the value (the root and array elements have no name). When the pointer
+// does not exist it walks up to the closest existing ancestor and reports exact as false.
+// ambiguous is true when duplicate member names make the mapping uncertain (the last occurrence
+// is reported, matching encoding/json).
+func (ix *Index) Target(pointer string) (s Span, part string, ambiguous, exact, ok bool) {
+	for p := pointer; ; {
+		if e, found := ix.values[p]; found {
+			if k, isMember := ix.keys[p]; isMember {
+				return k, PartKey, e.ambiguous, p == pointer, true
+			}
+			return e.span, PartValue, e.ambiguous, p == pointer, true
+		}
+		if p == "" {
+			return Span{}, "", false, false, false
+		}
+		p = p[:strings.LastIndexByte(p, '/')]
+	}
+}
+
 // Escape encodes one reference token per RFC 6901.
 func Escape(tok string) string {
 	return strings.NewReplacer("~", "~0", "/", "~1").Replace(tok)

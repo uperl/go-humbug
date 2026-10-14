@@ -26,6 +26,7 @@
             "end_column": 12,
             "end_line": 1,
             "line": 1,
+            "part": "value",
             "start": 0
           }
         },
@@ -51,6 +52,7 @@
             "end_column": 12,
             "end_line": 1,
             "line": 1,
+            "part": "value",
             "start": 0
           }
         },
@@ -78,6 +80,7 @@
             "end_column": 12,
             "end_line": 1,
             "line": 1,
+            "part": "value",
             "start": 0
           }
         },
@@ -104,6 +107,7 @@
             "end_column": 12,
             "end_line": 1,
             "line": 1,
+            "part": "value",
             "start": 0
           }
         },
@@ -131,6 +135,7 @@
             "end_column": 12,
             "end_line": 1,
             "line": 1,
+            "part": "value",
             "start": 0
           }
         },

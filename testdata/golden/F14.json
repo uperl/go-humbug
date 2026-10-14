@@ -16,12 +16,13 @@
           "location": "body",
           "pointer": "/zip",
           "span": {
-            "column": 26,
-            "end": 30,
-            "end_column": 31,
+            "column": 20,
+            "end": 24,
+            "end_column": 25,
             "end_line": 1,
             "line": 1,
-            "start": 25
+            "part": "key",
+            "start": 19
           }
         },
         "message": "body at /zip violates schema keyword \"pattern\"",

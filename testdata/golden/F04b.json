@@ -20,18 +20,19 @@
           "location": "body",
           "pointer": "/profile",
           "span": {
-            "column": 33,
-            "end": 38,
-            "end_column": 39,
+            "column": 23,
+            "end": 31,
+            "end_column": 32,
             "end_line": 1,
             "line": 1,
-            "start": 32
+            "part": "key",
+            "start": 22
           }
         },
         "message": "body at /profile violates schema keyword \"type\"",
         "schema": {
           "column": 7,
-          "line": 236,
+          "line": 248,
           "pointer": "/properties/profile/type",
           "relative": true
         },

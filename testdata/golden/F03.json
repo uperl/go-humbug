@@ -16,18 +16,19 @@
           "location": "body",
           "pointer": "/age",
           "span": {
-            "column": 18,
-            "end": 19,
-            "end_column": 20,
+            "column": 12,
+            "end": 16,
+            "end_column": 17,
             "end_line": 1,
             "line": 1,
-            "start": 17
+            "part": "key",
+            "start": 11
           }
         },
         "message": "body at /age violates schema keyword \"minimum\"",
         "schema": {
           "column": 7,
-          "line": 236,
+          "line": 248,
           "pointer": "/properties/age/minimum",
           "relative": true
         },
@@ -46,18 +47,19 @@
           "location": "body",
           "pointer": "/email",
           "span": {
-            "column": 29,
-            "end": 29,
-            "end_column": 30,
+            "column": 21,
+            "end": 27,
+            "end_column": 28,
             "end_line": 1,
             "line": 1,
-            "start": 28
+            "part": "key",
+            "start": 20
           }
         },
         "message": "body at /email violates schema keyword \"type\"",
         "schema": {
           "column": 7,
-          "line": 236,
+          "line": 248,
           "pointer": "/properties/email/type",
           "relative": true
         },
@@ -72,18 +74,19 @@
           "location": "body",
           "pointer": "/name",
           "span": {
-            "column": 9,
-            "end": 10,
-            "end_column": 11,
+            "column": 2,
+            "end": 7,
+            "end_column": 8,
             "end_line": 1,
             "line": 1,
-            "start": 8
+            "part": "key",
+            "start": 1
           }
         },
         "message": "body at /name violates schema keyword \"minLength\"",
         "schema": {
           "column": 7,
-          "line": 236,
+          "line": 248,
           "pointer": "/properties/name/minLength",
           "relative": true
         },

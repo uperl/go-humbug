@@ -10,32 +10,8 @@
     "complete": true,
     "diagnostics": [
       {
-        "code": "schema.additional_properties",
-        "id": "d1",
-        "instance": {
-          "location": "body",
-          "span": {
-            "column": 1,
-            "end": 22,
-            "end_column": 23,
-            "end_line": 1,
-            "line": 1,
-            "start": 0
-          }
-        },
-        "message": "body violates schema keyword \"additionalProperties\"",
-        "schema": {
-          "line": 1,
-          "pointer": "/allOf/0/$ref/additionalProperties",
-          "relative": true
-        },
-        "severity": "error",
-        "side": "request",
-        "suppressed_by": null
-      },
-      {
         "code": "schema.required",
-        "id": "d2",
+        "id": "d1",
         "instance": {
           "location": "body",
           "missing": [
@@ -48,6 +24,7 @@
             "end_column": 23,
             "end_line": 1,
             "line": 1,
+            "part": "value",
             "start": 0
           }
         },
@@ -55,6 +32,58 @@
         "schema": {
           "line": 1,
           "pointer": "/allOf/0/$ref/required",
+          "relative": true
+        },
+        "severity": "error",
+        "side": "request",
+        "suppressed_by": null
+      },
+      {
+        "code": "schema.additional_properties",
+        "id": "d2",
+        "instance": {
+          "location": "body",
+          "pointer": "/extra",
+          "span": {
+            "column": 10,
+            "end": 16,
+            "end_column": 17,
+            "end_line": 1,
+            "line": 1,
+            "part": "key",
+            "start": 9
+          }
+        },
+        "message": "body at /extra is not allowed by the schema",
+        "schema": {
+          "line": 1,
+          "pointer": "/allOf/0/$ref/additionalProperties",
+          "relative": true
+        },
+        "severity": "error",
+        "side": "request",
+        "suppressed_by": null
+      },
+      {
+        "code": "schema.additional_properties",
+        "id": "d3",
+        "instance": {
+          "location": "body",
+          "pointer": "/qty",
+          "span": {
+            "column": 2,
+            "end": 6,
+            "end_column": 7,
+            "end_line": 1,
+            "line": 1,
+            "part": "key",
+            "start": 1
+          }
+        },
+        "message": "body at /qty is not allowed by the schema",
+        "schema": {
+          "line": 1,
+          "pointer": "/allOf/0/$ref/additionalProperties",
           "relative": true
         },
         "severity": "error",

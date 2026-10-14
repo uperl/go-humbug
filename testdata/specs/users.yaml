@@ -230,6 +230,18 @@ paths:
           headers:
             X-Rate-Limit: {required: true, schema: {type: integer}}
             X-Note: {required: false, schema: {type: string}}
+  /exclusive:
+    post:
+      operationId: exclusive
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - {$ref: '#/components/schemas/Email'}
+                - {$ref: '#/components/schemas/Phone'}
+      responses: {'204': {description: ok}}
 components:
   schemas:
     NewUser:

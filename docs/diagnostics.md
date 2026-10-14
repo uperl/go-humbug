@@ -122,8 +122,17 @@ name found, never the value). They are omitted when several type constraints app
 ## Locations
 
 - Body diagnostics carry an RFC 6901 `pointer` and, when the body parses, a `span` (zero-based byte
-  offsets, end exclusive; one-based line and column in UTF-8 bytes). `contextual: true` marks the
-  nearest existing ancestor (used for missing properties); `ambiguous: true` marks duplicate keys.
+  offsets, end exclusive; one-based line and column in UTF-8 bytes). **The span highlights the
+  member name** when the pointer addresses an object member (`part: "key"`, quotes included), and
+  the value where there is no name: the root and array elements (`part: "value"`). A parse error
+  is a zero-width `part: "position"`. `contextual: true` marks the nearest existing ancestor, used
+  for missing properties (so `required` highlights the parent's name, or the whole document at the
+  root); `ambiguous: true` marks duplicate keys, where the last occurrence is reported.
+- **`additionalProperties`** gets one finding per rejected property, pointing at that member, so the
+  highlight is the offending name. When the rejected names cannot be attributed with certainty
+  (inside `oneOf`/`anyOf`, or two closed schemas applying to one object), Humbug does not guess:
+  it reports one finding per constraint for the object.
+- The value's own span is not reported. A consumer that wants it can parse the body at `pointer`.
 - Header, query, cookie and path diagnostics identify the parameter by `location` and `name` only;
   no wire positions are invented.
 - `schema.pointer` is relative to the root schema of the validated body. `schema.line`/`column`

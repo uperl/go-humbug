@@ -343,7 +343,7 @@ func TestResponseArrayAndHeaders(t *testing.T) {
 		case "schema.type":
 			sp := inst["span"].(obj)
 			got := body[int(sp["start"].(float64)):int(sp["end"].(float64))]
-			gotType = inst["pointer"] == "/1/id" && got == `"2"`
+			gotType = inst["pointer"] == "/1/id" && got == `"id"` && sp["part"] == "key"
 		}
 	}
 	if !gotHeader || !gotType {
