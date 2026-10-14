@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/pb33f/libopenapi"
 	validator "github.com/pb33f/libopenapi-validator"
@@ -25,6 +26,7 @@ import (
 
 	"github.com/uperl/go-humbug/internal/diagnostics"
 	"github.com/uperl/go-humbug/internal/limits"
+	"github.com/uperl/go-humbug/internal/offline"
 )
 
 // logger sends library diagnostics to stderr; stdout carries protocol traffic only.
@@ -77,11 +79,20 @@ type Engine struct {
 }
 
 // Load reads and fully resolves the spec at path. Local file references are
-// resolved relative to the spec's directory; remote references are not fetched.
+// resolved relative to the spec's directory; remote references are not fetched, except that the
+// official schemas in package offline resolve, by their canonical URIs, from copies in the binary.
 func Load(path string) (*Engine, error) { return LoadWithLimits(path, limits.Default()) }
+
+// goOffline makes every HTTP request through the default transport answer from package offline.
+// Remote references in the library go through RemoteURLHandler below, but the validator also
+// compiles each schema with a loader that fetches http(s) URIs it meets ($ref, $schema) over its
+// own client, which uses http.DefaultTransport and cannot be configured. Humbug makes no HTTP
+// requests of its own.
+var goOffline sync.Once
 
 // LoadWithLimits is Load with an explicit resource policy (see package limits).
 func LoadWithLimits(path string, lim limits.Limits) (*Engine, error) {
+	goOffline.Do(func() { http.DefaultTransport = offline.Transport{} })
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, &SpecError{err}
@@ -91,9 +102,15 @@ func LoadWithLimits(path string, lim limits.Limits) (*Engine, error) {
 		return nil, &SpecError{err}
 	}
 	doc, err := libopenapi.NewDocumentWithConfiguration(raw, &datamodel.DocumentConfiguration{
-		BasePath:              abs,
-		AllowFileReferences:   true,
-		AllowRemoteReferences: false,
+		BasePath:            abs,
+		AllowFileReferences: true,
+		// Remote references are enabled only so the bundled schemas resolve: every fetch goes to
+		// fetchRemote, which answers from package offline and refuses any other URI.
+		AllowRemoteReferences: true,
+		RemoteURLHandler:      fetchRemote,
+		// The bundled URIs have no file extension; the library then sniffs the content to tell
+		// JSON from YAML.
+		AllowUnknownExtensionContentDetection: true,
 		// The library's default logger writes JSON to stdout, which is the protocol stream.
 		Logger: logger,
 	})
@@ -104,7 +121,7 @@ func LoadWithLimits(path string, lim limits.Limits) (*Engine, error) {
 		return nil, &UnsupportedVersionError{Version: v}
 	}
 	model, err := doc.BuildV3Model()
-	if err != nil {
+	if err = dropBundledRefErrors(err); err != nil {
 		return nil, &SpecError{err}
 	}
 	if model == nil {

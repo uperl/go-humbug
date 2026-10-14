@@ -55,7 +55,12 @@ func start(t *testing.T) *proc { t.Helper(); return startWith(t) }
 
 func startWith(t *testing.T, args ...string) *proc {
 	t.Helper()
-	cmd := exec.Command(binary, args...)
+	return startCmd(t, exec.Command(binary, args...))
+}
+
+// startCmd starts cmd, which runs a humbug binary, with its stdio connected for the test.
+func startCmd(t *testing.T, cmd *exec.Cmd) *proc {
+	t.Helper()
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		t.Fatal(err)

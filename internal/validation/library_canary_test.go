@@ -1,8 +1,14 @@
 package validation
 
-import "testing"
+import (
+	"os"
+	"testing"
 
-// CANARIES. Humbug works around two behaviors of the pinned validation library. These tests call
+	"github.com/pb33f/libopenapi"
+	"github.com/pb33f/libopenapi/datamodel"
+)
+
+// CANARIES. Humbug works around some behaviors of the pinned validation library. These tests call
 // the library directly and fail when it stops behaving that way, which is the cue to remove the
 // workaround and update docs/protocol.md ("Known library limitations").
 
@@ -70,5 +76,34 @@ func TestLibraryStillNeedsAnXMLRootName(t *testing.T) {
 	}
 	if res.Valid || res.Request.Status != "incomplete" || len(res.Request.Diagnostics) != 1 {
 		t.Errorf("Humbug must report it as not inspected, not as a violation: %+v", res.Request)
+	}
+}
+
+// The library reports a $ref to an extensionless remote document as missing even though it then
+// resolves it. Humbug drops that error for bundled URIs (bundled.go, dropBundledRefErrors).
+func TestLibraryStillReportsBundledRefsMissing(t *testing.T) {
+	raw, err := os.ReadFile(oasSchemaSpec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := libopenapi.NewDocumentWithConfiguration(raw, &datamodel.DocumentConfiguration{
+		AllowRemoteReferences:                 true,
+		RemoteURLHandler:                      fetchRemote,
+		AllowUnknownExtensionContentDetection: true,
+		Logger:                                logger,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	model, err := doc.BuildV3Model()
+	if err == nil {
+		t.Fatal("the library no longer reports the bundled $ref as missing. It may be fixed: remove " +
+			"dropBundledRefErrors in bundled.go and update docs/protocol.md.")
+	}
+	if dropBundledRefErrors(err) != nil {
+		t.Fatalf("the library reports something else for the bundled $ref; check dropBundledRefErrors: %v", err)
+	}
+	if model == nil {
+		t.Fatal("no model built")
 	}
 }

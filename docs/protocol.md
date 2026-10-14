@@ -113,8 +113,9 @@ only together with fixtures for the new version.
 - SIGTERM is not handled specially: the process is terminated by the signal at once, mid-command
   if need be. Clients should treat a dead process as a failed transaction and restart it.
 - If the client stops reading stdout, the next failed write ends the process (non-zero exit).
-- Nothing is printed until a command arrives. Remote `$ref` fetching is disabled in the library
-  configuration (not separately tested).
+- Nothing is printed until a command arrives. Humbug makes no network requests: remote `$ref`s
+  are not fetched (see "Remote references" under "Known library limitations"), and a test runs the
+  binary with every HTTP request routed to a proxy that counts them.
 
 ## Routing
 
@@ -349,8 +350,26 @@ should adapt to.
   operation when `HEAD` is not declared.
 - **Schema file names.** Cross-file `$ref` schema locations give the line and column in the
   referenced file, but the library does not expose which file, so `schema.uri` is omitted.
-- **Remote references** are disabled; a spec that needs one fails with `spec.invalid`, and a test
-  confirms no request is made.
+- **Remote references** are not fetched; a spec that needs one fails with `spec.invalid`, and a
+  test confirms no request is made. The exception is a fixed set of official schemas compiled into
+  the binary (`internal/offline`), which resolve by their canonical URIs with no network access, no
+  companion files and no configuration:
+  - `https://spec.openapis.org/oas/3.1/schema-base/2022-10-07`, the OAS 3.1 meta-schema for an
+    OpenAPI document whose Schema Objects use the OAS base dialect, for an API that serves an
+    OpenAPI document as a body;
+  - what it refers to: `https://spec.openapis.org/oas/3.1/schema/2022-10-07`,
+    `https://spec.openapis.org/oas/3.1/dialect/base` and `https://spec.openapis.org/oas/3.1/meta/base`.
+    The JSON Schema 2020-12 meta-schemas they use are built into the validator.
+
+  The match is exact: another scheme, a trailing slash, an added `.json` or another date is a
+  different URI and fails like any other remote reference. Two library behaviors need working
+  around for these, each pinned by a canary test: the library reports a `$ref` to a whole remote
+  document with no file extension as missing even though it then resolves it, so Humbug drops that
+  one error for bundled URIs only (`TestLibraryStillReportsBundledRefsMissing`); and the library
+  retries a refused fetch of such a URI three times a second apart, so Humbug refuses those in a way
+  that is not retried (`TestUnbundledRemoteRefsStillFail` times it). The validator also compiles
+  schemas with a loader that fetches any `http(s)` URI it meets over Go's default HTTP transport;
+  Humbug replaces that transport with one that answers only from the bundle.
 
 ## Known gaps
 

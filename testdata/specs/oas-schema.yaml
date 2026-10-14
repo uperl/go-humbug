@@ -1,0 +1,16 @@
+openapi: 3.1.0
+info: {title: Serves its own OpenAPI description, version: "1"}
+# The response body is itself an OpenAPI 3.1 document, validated against the official meta-schema.
+# The $ref is the canonical URI, exactly as a generator emits it (issue #5); Humbug resolves it from
+# the copy bundled in the binary (internal/offline), never over the network.
+paths:
+  /openapi.json:
+    get:
+      responses:
+        "200":
+          description: The OpenAPI description of this API.
+          content:
+            application/json:
+              schema:
+                type: object
+                $ref: https://spec.openapis.org/oas/3.1/schema-base/2022-10-07
