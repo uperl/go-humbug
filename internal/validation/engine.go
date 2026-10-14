@@ -23,8 +23,8 @@ import (
 	"github.com/pb33f/libopenapi/datamodel"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 
-	"humbug/internal/diagnostics"
-	"humbug/internal/limits"
+	"github.com/uperl/go-humbug/internal/diagnostics"
+	"github.com/uperl/go-humbug/internal/limits"
 )
 
 // logger sends library diagnostics to stderr; stdout carries protocol traffic only.

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"humbug/internal/limits"
+	"github.com/uperl/go-humbug/internal/limits"
 )
 
 // runWith is run() with an explicit resource policy.

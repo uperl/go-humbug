@@ -11,7 +11,7 @@ import (
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 	"github.com/pb33f/libopenapi/orderedmap"
 
-	d "humbug/internal/diagnostics"
+	d "github.com/uperl/go-humbug/internal/diagnostics"
 )
 
 // Non-JSON bodies are validated by the shape of the schema declared for their media type, not

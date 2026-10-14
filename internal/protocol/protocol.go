@@ -14,9 +14,9 @@ import (
 	"regexp"
 	"strings"
 
-	"humbug/internal/diagnostics"
-	"humbug/internal/limits"
-	"humbug/internal/validation"
+	"github.com/uperl/go-humbug/internal/diagnostics"
+	"github.com/uperl/go-humbug/internal/limits"
+	"github.com/uperl/go-humbug/internal/validation"
 )
 
 const Version = 1

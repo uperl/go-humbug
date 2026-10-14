@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"humbug/internal/diagnostics"
-	"humbug/internal/validation"
+	"github.com/uperl/go-humbug/internal/diagnostics"
+	"github.com/uperl/go-humbug/internal/validation"
 )
 
 // capture is a stand-in implementation that records exactly what the protocol layer hands it.

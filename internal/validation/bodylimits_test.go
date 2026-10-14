@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"humbug/internal/limits"
+	"github.com/uperl/go-humbug/internal/limits"
 )
 
 func TestExceedsDepthTable(t *testing.T) {

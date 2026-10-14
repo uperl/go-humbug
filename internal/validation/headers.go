@@ -8,7 +8,7 @@ import (
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 
-	d "humbug/internal/diagnostics"
+	d "github.com/uperl/go-humbug/internal/diagnostics"
 )
 
 // headerDecl is a header the specification declares for a request (a header parameter) or a

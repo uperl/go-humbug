@@ -13,8 +13,8 @@ import (
 	"log/slog"
 	"os"
 
-	"humbug/internal/limits"
-	"humbug/internal/protocol"
+	"github.com/uperl/go-humbug/internal/limits"
+	"github.com/uperl/go-humbug/internal/protocol"
 )
 
 func main() {

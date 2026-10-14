@@ -1,4 +1,4 @@
-module humbug
+module github.com/uperl/go-humbug
 
 go 1.27.0
 

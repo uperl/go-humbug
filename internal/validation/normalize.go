@@ -13,8 +13,8 @@ import (
 	verrors "github.com/pb33f/libopenapi-validator/errors"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 
-	d "humbug/internal/diagnostics"
-	"humbug/internal/sourcemap"
+	d "github.com/uperl/go-humbug/internal/diagnostics"
+	"github.com/uperl/go-humbug/internal/sourcemap"
 )
 
 // normalizer converts one side's pb33f errors into diagnostics. Messages are
