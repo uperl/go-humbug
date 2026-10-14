@@ -1,0 +1,161 @@
+{
+  "complete": true,
+  "has_violations": true,
+  "operation": {
+    "method": "POST",
+    "operation_id": "createContact",
+    "path": "/contacts"
+  },
+  "request": {
+    "complete": true,
+    "diagnostics": [
+      {
+        "children": [
+          "d2",
+          "d3",
+          "d4",
+          "d5"
+        ],
+        "code": "schema.oneOf.no_match",
+        "id": "d1",
+        "instance": {
+          "location": "body",
+          "span": {
+            "column": 1,
+            "end": 11,
+            "end_column": 12,
+            "end_line": 1,
+            "line": 1,
+            "start": 0
+          }
+        },
+        "message": "value matched none of the oneOf branches",
+        "schema": {
+          "line": 1,
+          "pointer": "/oneOf",
+          "relative": true
+        },
+        "severity": "error",
+        "side": "request",
+        "suppressed_by": null
+      },
+      {
+        "branch": 0,
+        "code": "schema.additional_properties",
+        "id": "d2",
+        "instance": {
+          "location": "body",
+          "span": {
+            "column": 1,
+            "end": 11,
+            "end_column": 12,
+            "end_line": 1,
+            "line": 1,
+            "start": 0
+          }
+        },
+        "message": "body violates schema keyword \"additionalProperties\"",
+        "parent": "d1",
+        "schema": {
+          "line": 1,
+          "pointer": "/oneOf/0/$ref/additionalProperties",
+          "relative": true
+        },
+        "severity": "error",
+        "side": "request",
+        "suppressed_by": null
+      },
+      {
+        "branch": 0,
+        "code": "schema.required",
+        "id": "d3",
+        "instance": {
+          "location": "body",
+          "span": {
+            "column": 1,
+            "contextual": true,
+            "end": 11,
+            "end_column": 12,
+            "end_line": 1,
+            "line": 1,
+            "start": 0
+          }
+        },
+        "message": "body is missing required properties",
+        "parent": "d1",
+        "schema": {
+          "line": 1,
+          "pointer": "/oneOf/0/$ref/required",
+          "relative": true
+        },
+        "severity": "error",
+        "side": "request",
+        "suppressed_by": null
+      },
+      {
+        "branch": 1,
+        "code": "schema.additional_properties",
+        "id": "d4",
+        "instance": {
+          "location": "body",
+          "span": {
+            "column": 1,
+            "end": 11,
+            "end_column": 12,
+            "end_line": 1,
+            "line": 1,
+            "start": 0
+          }
+        },
+        "message": "body violates schema keyword \"additionalProperties\"",
+        "parent": "d1",
+        "schema": {
+          "line": 1,
+          "pointer": "/oneOf/1/$ref/additionalProperties",
+          "relative": true
+        },
+        "severity": "error",
+        "side": "request",
+        "suppressed_by": null
+      },
+      {
+        "branch": 1,
+        "code": "schema.required",
+        "id": "d5",
+        "instance": {
+          "location": "body",
+          "span": {
+            "column": 1,
+            "contextual": true,
+            "end": 11,
+            "end_column": 12,
+            "end_line": 1,
+            "line": 1,
+            "start": 0
+          }
+        },
+        "message": "body is missing required properties",
+        "parent": "d1",
+        "schema": {
+          "line": 1,
+          "pointer": "/oneOf/1/$ref/required",
+          "relative": true
+        },
+        "severity": "error",
+        "side": "request",
+        "suppressed_by": null
+      }
+    ],
+    "has_violations": true,
+    "status": "invalid",
+    "valid": false
+  },
+  "response": {
+    "complete": true,
+    "diagnostics": [],
+    "has_violations": false,
+    "status": "skipped",
+    "valid": false
+  },
+  "valid": false
+}

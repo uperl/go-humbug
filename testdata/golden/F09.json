@@ -1,0 +1,36 @@
+{
+  "complete": true,
+  "has_violations": true,
+  "operation": {
+    "method": "POST",
+    "operation_id": "createUser",
+    "path": "/users"
+  },
+  "request": {
+    "complete": true,
+    "diagnostics": [],
+    "has_violations": false,
+    "status": "valid",
+    "valid": true
+  },
+  "response": {
+    "complete": true,
+    "diagnostics": [
+      {
+        "code": "response.status",
+        "id": "d1",
+        "instance": {
+          "location": "status"
+        },
+        "message": "response status code is not defined for this operation",
+        "severity": "error",
+        "side": "response",
+        "suppressed_by": null
+      }
+    ],
+    "has_violations": true,
+    "status": "invalid",
+    "valid": false
+  },
+  "valid": false
+}

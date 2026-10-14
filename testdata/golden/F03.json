@@ -1,0 +1,103 @@
+{
+  "complete": true,
+  "has_violations": true,
+  "operation": {
+    "method": "POST",
+    "operation_id": "createUser",
+    "path": "/users"
+  },
+  "request": {
+    "complete": true,
+    "diagnostics": [
+      {
+        "code": "schema.minimum",
+        "id": "d1",
+        "instance": {
+          "location": "body",
+          "pointer": "/age",
+          "span": {
+            "column": 18,
+            "end": 19,
+            "end_column": 20,
+            "end_line": 1,
+            "line": 1,
+            "start": 17
+          }
+        },
+        "message": "body at /age violates schema keyword \"minimum\"",
+        "schema": {
+          "column": 7,
+          "line": 81,
+          "pointer": "/properties/age/minimum",
+          "relative": true
+        },
+        "severity": "error",
+        "side": "request",
+        "suppressed_by": null
+      },
+      {
+        "code": "schema.type",
+        "id": "d2",
+        "instance": {
+          "location": "body",
+          "pointer": "/email",
+          "span": {
+            "column": 29,
+            "end": 29,
+            "end_column": 30,
+            "end_line": 1,
+            "line": 1,
+            "start": 28
+          }
+        },
+        "message": "body at /email violates schema keyword \"type\"",
+        "schema": {
+          "column": 7,
+          "line": 81,
+          "pointer": "/properties/email/type",
+          "relative": true
+        },
+        "severity": "error",
+        "side": "request",
+        "suppressed_by": null
+      },
+      {
+        "code": "schema.minLength",
+        "id": "d3",
+        "instance": {
+          "location": "body",
+          "pointer": "/name",
+          "span": {
+            "column": 9,
+            "end": 10,
+            "end_column": 11,
+            "end_line": 1,
+            "line": 1,
+            "start": 8
+          }
+        },
+        "message": "body at /name violates schema keyword \"minLength\"",
+        "schema": {
+          "column": 7,
+          "line": 81,
+          "pointer": "/properties/name/minLength",
+          "relative": true
+        },
+        "severity": "error",
+        "side": "request",
+        "suppressed_by": null
+      }
+    ],
+    "has_violations": true,
+    "status": "invalid",
+    "valid": false
+  },
+  "response": {
+    "complete": true,
+    "diagnostics": [],
+    "has_violations": false,
+    "status": "skipped",
+    "valid": false
+  },
+  "valid": false
+}

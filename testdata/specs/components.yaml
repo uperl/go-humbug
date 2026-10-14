@@ -1,0 +1,8 @@
+components:
+  schemas:
+    Address:
+      type: object
+      required: [street, zip]
+      properties:
+        street: {type: string}
+        zip: {type: string, pattern: '^[0-9]{5}$'}

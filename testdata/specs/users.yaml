@@ -1,0 +1,106 @@
+openapi: 3.1.0
+info: {title: Users, version: "1.0"}
+servers: [{url: http://example.test}]
+paths:
+  /users:
+    post:
+      operationId: createUser
+      parameters:
+        - {name: X-Request-Id, in: header, required: true, schema: {type: string, minLength: 3}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/NewUser'}
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/User'}
+  /users/{id}:
+    get:
+      operationId: getUser
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer}}
+        - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100}}
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/User'}
+  /contacts:
+    post:
+      operationId: createContact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - {$ref: '#/components/schemas/Email'}
+                - {$ref: '#/components/schemas/Phone'}
+      responses: {'204': {description: ok}}
+  /contacts-any:
+    post:
+      operationId: createContactAny
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              anyOf:
+                - {$ref: '#/components/schemas/Email'}
+                - {$ref: '#/components/schemas/Phone'}
+      responses: {'204': {description: ok}}
+  /overlap:
+    post:
+      operationId: createOverlap
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - {type: object}
+                - {type: object, required: [email]}
+      responses: {'204': {description: ok}}
+  /addresses:
+    post:
+      operationId: createAddress
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: 'components.yaml#/components/schemas/Address'}
+      responses: {'204': {description: ok}}
+components:
+  schemas:
+    NewUser:
+      type: object
+      required: [name, age, profile]
+      properties:
+        name: {type: string, minLength: 1}
+        age: {type: integer, minimum: 0}
+        email: {type: string}
+        profile:
+          type: object
+          required: [bio]
+          properties: {bio: {type: string}}
+    User:
+      type: object
+      required: [id, name]
+      properties:
+        id: {type: integer}
+        name: {type: string}
+    Email:
+      type: object
+      required: [email]
+      properties: {email: {type: string}}
+      additionalProperties: false
+    Phone:
+      type: object
+      required: [phone]
+      properties: {phone: {type: string}}
+      additionalProperties: false

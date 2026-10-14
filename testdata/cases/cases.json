@@ -1,0 +1,280 @@
+[
+ {
+  "id": "F01",
+  "desc": "valid request and response",
+  "expect": "valid",
+  "req": {
+   "method": "POST",
+   "url": "/users",
+   "headers": {
+    "Content-Type": "application/json",
+    "X-Request-Id": "abc"
+   },
+   "body": "{\"name\":\"Ann\",\"age\":30,\"profile\":{\"bio\":\"x\"}}"
+  },
+  "res": {
+   "status": 201,
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "body": "{\"id\":1,\"name\":\"Ann\"}"
+  }
+ },
+ {
+  "id": "F02",
+  "desc": "wrong JSON property type",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/users",
+   "headers": {
+    "Content-Type": "application/json",
+    "X-Request-Id": "abc"
+   },
+   "body": "{\n  \"name\": \"Ann\",\n  \"age\": \"thirty\",\n  \"profile\": {\"bio\": \"x\"}\n}"
+  }
+ },
+ {
+  "id": "F03",
+  "desc": "multiple independent invalid fields",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/users",
+   "headers": {
+    "Content-Type": "application/json",
+    "X-Request-Id": "abc"
+   },
+   "body": "{\"name\":\"\",\"age\":-1,\"email\":5,\"profile\":{\"bio\":\"x\"}}"
+  }
+ },
+ {
+  "id": "F04",
+  "desc": "missing required nested property",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/users",
+   "headers": {
+    "Content-Type": "application/json",
+    "X-Request-Id": "abc"
+   },
+   "body": "{\"name\":\"Ann\",\"age\":3,\"profile\":{}}"
+  }
+ },
+ {
+  "id": "F04b",
+  "desc": "type mismatch on object: redundant required errors?",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/users",
+   "headers": {
+    "Content-Type": "application/json",
+    "X-Request-Id": "abc"
+   },
+   "body": "{\"name\":\"Ann\",\"age\":3,\"profile\":\"oops\"}"
+  }
+ },
+ {
+  "id": "F05",
+  "desc": "invalid query parameter",
+  "expect": "request-invalid",
+  "req": {
+   "method": "GET",
+   "url": "/users/7?limit=abc%20x"
+  }
+ },
+ {
+  "id": "F05b",
+  "desc": "query out of range and bad path param",
+  "expect": "request-invalid",
+  "req": {
+   "method": "GET",
+   "url": "/users/notint?limit=500"
+  }
+ },
+ {
+  "id": "F06",
+  "desc": "missing required header",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/users",
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "body": "{\"name\":\"Ann\",\"age\":3,\"profile\":{\"bio\":\"x\"}}"
+  }
+ },
+ {
+  "id": "F06b",
+  "desc": "invalid header value (too short)",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/users",
+   "headers": {
+    "Content-Type": "application/json",
+    "X-Request-Id": "a"
+   },
+   "body": "{\"name\":\"Ann\",\"age\":3,\"profile\":{\"bio\":\"x\"}}"
+  }
+ },
+ {
+  "id": "F07",
+  "desc": "unsupported request media type",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/users",
+   "headers": {
+    "Content-Type": "text/plain",
+    "X-Request-Id": "abc"
+   },
+   "body": "hello"
+  }
+ },
+ {
+  "id": "F08",
+  "desc": "malformed JSON request body",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/users",
+   "headers": {
+    "Content-Type": "application/json",
+    "X-Request-Id": "abc"
+   },
+   "body": "{\n  \"name\": \"Ann\",\n  \"age\": 3,,\n}"
+  }
+ },
+ {
+  "id": "F09",
+  "desc": "undocumented response status",
+  "expect": "response-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/users",
+   "headers": {
+    "Content-Type": "application/json",
+    "X-Request-Id": "abc"
+   },
+   "body": "{\"name\":\"Ann\",\"age\":3,\"profile\":{\"bio\":\"x\"}}"
+  },
+  "res": {
+   "status": 418,
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "body": "{}"
+  }
+ },
+ {
+  "id": "F10",
+  "desc": "invalid JSON response body",
+  "expect": "response-invalid",
+  "req": {
+   "method": "GET",
+   "url": "/users/7"
+  },
+  "res": {
+   "status": 200,
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "body": "{\"id\":\"seven\"}"
+  }
+ },
+ {
+  "id": "F11",
+  "desc": "oneOf zero matching branches",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/contacts",
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "body": "{\"fax\":\"1\"}"
+  }
+ },
+ {
+  "id": "F12",
+  "desc": "oneOf multiple matching branches",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/overlap",
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "body": "{\"email\":\"a\"}"
+  }
+ },
+ {
+  "id": "F13",
+  "desc": "anyOf no matching branches",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/contacts-any",
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "body": "{\"fax\":\"1\"}"
+  }
+ },
+ {
+  "id": "F14",
+  "desc": "external $ref file",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/addresses",
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "body": "{\"street\":\"1 Main\",\"zip\":\"abc\"}"
+  }
+ },
+ {
+  "id": "F15",
+  "desc": "unmatched path",
+  "expect": "request-invalid",
+  "req": {
+   "method": "GET",
+   "url": "/nope"
+  }
+ },
+ {
+  "id": "F15b",
+  "desc": "unmatched method",
+  "expect": "request-invalid",
+  "req": {
+   "method": "DELETE",
+   "url": "/users"
+  }
+ },
+ {
+  "id": "F16",
+  "desc": "invalid request plus invalid response",
+  "expect": "both-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/users",
+   "headers": {
+    "Content-Type": "application/json",
+    "X-Request-Id": "abc"
+   },
+   "body": "{\"name\":\"Ann\",\"age\":\"x\",\"profile\":{\"bio\":\"x\"}}"
+  },
+  "res": {
+   "status": 201,
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "body": "{\"id\":\"bad\"}"
+  }
+ }
+]

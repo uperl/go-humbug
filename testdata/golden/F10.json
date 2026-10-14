@@ -1,0 +1,80 @@
+{
+  "complete": true,
+  "has_violations": true,
+  "operation": {
+    "method": "GET",
+    "operation_id": "getUser",
+    "path": "/users/{id}"
+  },
+  "request": {
+    "complete": true,
+    "diagnostics": [],
+    "has_violations": false,
+    "status": "valid",
+    "valid": true
+  },
+  "response": {
+    "complete": true,
+    "diagnostics": [
+      {
+        "code": "schema.required",
+        "id": "d1",
+        "instance": {
+          "location": "body",
+          "missing": [
+            "name"
+          ],
+          "span": {
+            "column": 1,
+            "contextual": true,
+            "end": 14,
+            "end_column": 15,
+            "end_line": 1,
+            "line": 1,
+            "start": 0
+          }
+        },
+        "message": "body is missing required properties",
+        "schema": {
+          "column": 7,
+          "line": 92,
+          "pointer": "/required",
+          "relative": true
+        },
+        "severity": "error",
+        "side": "response",
+        "suppressed_by": null
+      },
+      {
+        "code": "schema.type",
+        "id": "d2",
+        "instance": {
+          "location": "body",
+          "pointer": "/id",
+          "span": {
+            "column": 7,
+            "end": 13,
+            "end_column": 14,
+            "end_line": 1,
+            "line": 1,
+            "start": 6
+          }
+        },
+        "message": "body at /id violates schema keyword \"type\"",
+        "schema": {
+          "column": 7,
+          "line": 92,
+          "pointer": "/properties/id/type",
+          "relative": true
+        },
+        "severity": "error",
+        "side": "response",
+        "suppressed_by": null
+      }
+    ],
+    "has_violations": true,
+    "status": "invalid",
+    "valid": false
+  },
+  "valid": false
+}
