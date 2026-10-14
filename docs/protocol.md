@@ -47,20 +47,42 @@ header pairs, and the error/result split are as in the draft.
 
 ## Routing
 
-A request is matched to an operation by its URL path alone, exactly as the validator matches it
-(Humbug builds the same router; a test compares the two across many URL shapes, so the `operation`
-in a result is present exactly when the request was routed and validated).
+### What the protocol expects (any implementation)
 
-- **Host, scheme and port are not checked.** `servers` in the specification is not used to reject a
-  request sent to a different host. (The library has a strict server-matching option; it is off.)
+A request is matched to an operation by the path of its URL, as OpenAPI defines it:
+
+- **Paths are literal and case-sensitive.** A path matches a path template only if every segment
+  matches; a template parameter matches exactly one non-empty segment.
+- **A trailing slash or a doubled slash is part of the path.** `/users/` and `//users` are not
+  `/users`. A request for them is `operation.not_found` unless the specification defines those
+  paths.
+- A path that matches but has no operation for the request method is
+  `operation.method_not_allowed`; no match at all is `operation.not_found`.
+- The URL is the effective absolute URL (a fragment is never sent over HTTP, so a client should
+  not include one).
+
+Not yet decided, so not part of the contract: whether the host, scheme and port, or a server
+base path, must match the specification's `servers`.
+
+### What Humbug does (implementation behavior)
+
+Humbug routes exactly as the validator it wraps (it builds the same router, and a test compares
+the two across many URL shapes, so the `operation` in a result is present exactly when the request
+was routed and validated). That differs from the expectations above in these ways:
+
+- **Known deviation: trailing and doubled slashes are tolerated.** `/users/`, `//users` and
+  `/users//` are routed to `/users` and validated against it, and the result reports operation
+  `/users`. This is a leniency of the underlying library, not intended behavior: OpenAPI treats
+  these as different paths, and another implementation should report `operation.not_found` for
+  them. Do not rely on it. Humbug may become strict; the tests that pin the current behavior
+  (`TestOperationIsReportedForEveryRoutedPath`, and the slash cases in
+  `TestRoutingMatchesTheValidator`) would then change.
+- **Host, scheme and port are not checked.** `servers` is not used to reject a request sent to a
+  different host. (The library has a strict server-matching option; it is off.)
 - **A server base path is optional.** With `servers: [https://api.example.test/v1]`, both
   `/v1/users` and `/users` match `/users`.
-- **Trailing and doubled slashes are tolerated.** `/users/`, `//users` and `/users//` route to
-  `/users`. This is the library's leniency; OpenAPI itself treats paths literally.
-- **Case matters.** `/Users` does not match `/users` (`operation.not_found`).
-- **A fragment is part of the path.** `/users#frag` is not routed. Fragments are never sent over
-  HTTP, so clients should not include one in the effective URL.
-- A matched path with no operation for the method is `operation.method_not_allowed`.
+- **Case matters** (as expected): `/Users` is `operation.not_found`.
+- **A fragment is part of the path**, so `/users#frag` is not routed (as expected).
 
 ## Behavior notes
 
@@ -164,6 +186,8 @@ well under a second.
   reported `parameter.invalid`. Humbug does not mask this. Fixtures F27 and F29 and
   `TestPathParameterStyles` pin the behavior and fail if an upgrade changes it. Simple-style arrays
   (`/list/1,2,3`) work.
+- **Trailing and doubled slashes are routed** to the path without them (see "Routing", where this
+  is listed as a deviation from what the protocol expects).
 - **Schema file names.** Cross-file `$ref` schema locations give the line and column in the
   referenced file, but the library does not expose which file, so `schema.uri` is omitted.
 - **Remote references** are disabled; a spec that needs one fails with `spec.invalid`, and a test

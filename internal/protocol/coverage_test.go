@@ -434,6 +434,11 @@ func TestBinaryLengthCountsBytesTextCountsCharacters(t *testing.T) {
 
 // The operation in the result comes from the same routing the validator uses, so a request the
 // validator routes (and validates) is never reported without an operation.
+//
+// KNOWN DEVIATION: the slash variants below ("/users/", "//users", "/users//") are not the path
+// "/users" under OpenAPI, and another implementation should report operation.not_found for them.
+// Humbug routes them because the library does. This test pins that leniency (see "Routing" in
+// docs/protocol.md); if Humbug becomes strict, those paths move to the not-found expectation.
 func TestOperationIsReportedForEveryRoutedPath(t *testing.T) {
 	bad := `{"name":"Ann","age":"x","profile":{"bio":"b"}}`
 	hd := `[["Content-Type","application/json"],["X-Request-Id","abc"]]`

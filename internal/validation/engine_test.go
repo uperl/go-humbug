@@ -23,6 +23,8 @@ func TestRoutingMatchesTheValidator(t *testing.T) {
 	e := loadTestEngine(t)
 	cases := []struct{ method, url string }{
 		{"POST", "http://example.test/users"},
+		// KNOWN DEVIATION: not "/users" under OpenAPI, but the library routes them (see "Routing" in
+		// docs/protocol.md). The guard only requires Humbug to agree with the validator.
 		{"POST", "http://example.test/users/"},
 		{"POST", "http://example.test//users"},
 		{"POST", "http://example.test/users//"},
