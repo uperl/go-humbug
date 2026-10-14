@@ -43,8 +43,11 @@ header pairs, and the error/result split are as in the draft.
 
 ## Known gaps
 
-Missing-property names are only filled when unambiguous (not inside `oneOf`/`anyOf` branches).
-Cookies, arrays, `allOf`, binary and non-JSON bodies, response headers, gzip, large bodies,
-`$ref` across files for schema locations, and 3.0 vs 3.1 transaction differences have no
-fixtures yet. Repeated request headers are validated as pb33f sees them (fixture: the second
-`X-Request-Id` value changes the outcome); this is not normalized by Humbug.
+- Missing-property names are only filled when unambiguous (not inside `oneOf`/`anyOf` branches).
+- Only JSON bodies are schema-validated; other media types make the side `incomplete`
+  (`validation.incomplete`, reason `body.not_inspected`). Form, XML and multipart support is deferred.
+- Untested: `$ref` across files for schema locations, gzip and very large bodies, path parameters
+  with unusual styles, and security requirements.
+- Repeated request headers are validated as pb33f sees them (fixture: the second `X-Request-Id`
+  value changes the outcome); this is not normalized by Humbug.
+- 3.0 is covered by one transaction test (`nullable`, boolean `exclusiveMinimum`) only.

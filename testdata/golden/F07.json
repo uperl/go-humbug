@@ -1,5 +1,5 @@
 {
-  "complete": true,
+  "complete": false,
   "has_violations": true,
   "operation": {
     "method": "POST",
@@ -7,7 +7,7 @@
     "path": "/users"
   },
   "request": {
-    "complete": true,
+    "complete": false,
     "diagnostics": [
       {
         "code": "body.media_type",
@@ -18,6 +18,21 @@
         },
         "message": "request body media type is not defined for this operation",
         "severity": "error",
+        "side": "request",
+        "suppressed_by": null
+      },
+      {
+        "code": "validation.incomplete",
+        "detail": {
+          "media_type": "text/plain"
+        },
+        "id": "d2",
+        "instance": {
+          "location": "body"
+        },
+        "message": "body was not schema-validated: only JSON bodies are inspected",
+        "reason": "body.not_inspected",
+        "severity": "info",
         "side": "request",
         "suppressed_by": null
       }

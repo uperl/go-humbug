@@ -75,6 +75,54 @@ paths:
           application/json:
             schema: {$ref: 'components.yaml#/components/schemas/Address'}
       responses: {'204': {description: ok}}
+  /items:
+    get:
+      operationId: listItems
+      parameters:
+        - {name: session, in: cookie, required: true, schema: {type: string, minLength: 4}}
+        - {name: ids, in: query, required: false, schema: {type: array, items: {type: integer}}}
+      responses:
+        '200':
+          description: ok
+          headers:
+            X-Rate-Limit: {required: true, schema: {type: integer}}
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/User'}
+  /orders:
+    post:
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - {$ref: '#/components/schemas/Email'}
+                - type: object
+                  required: [qty]
+                  properties: {qty: {type: integer}}
+      responses: {'204': {description: ok}}
+  /upload:
+    post:
+      operationId: upload
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: {type: string, format: binary}
+      responses: {'204': {description: ok}}
+  /notes:
+    post:
+      operationId: createNote
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema: {type: string, minLength: 3}
+      responses: {'204': {description: ok}}
 components:
   schemas:
     NewUser:

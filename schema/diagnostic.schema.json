@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://humbug.invalid/schema/diagnostic.schema.json",
+  "title": "Humbug diagnostic and transaction result (protocol v1)",
+  "$ref": "#/$defs/result",
+  "$defs": {
+    "result": {
+      "type": "object",
+      "required": ["complete", "has_violations", "valid", "request", "response"],
+      "additionalProperties": false,
+      "properties": {
+        "complete": {"type": "boolean"},
+        "has_violations": {"type": "boolean"},
+        "valid": {"type": "boolean", "description": "complete && !has_violations"},
+        "operation": {
+          "type": "object",
+          "required": ["method", "path"],
+          "additionalProperties": false,
+          "properties": {
+            "method": {"type": "string"},
+            "path": {"type": "string", "description": "Path template from the specification"},
+            "operation_id": {"type": "string"}
+          }
+        },
+        "request": {"$ref": "#/$defs/side"},
+        "response": {"$ref": "#/$defs/side"}
+      }
+    },
+    "side": {
+      "type": "object",
+      "required": ["status", "complete", "has_violations", "valid", "diagnostics"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {"enum": ["valid", "invalid", "incomplete", "skipped"]},
+        "complete": {"type": "boolean"},
+        "has_violations": {"type": "boolean"},
+        "valid": {"type": "boolean"},
+        "diagnostics": {"type": "array", "items": {"$ref": "#/$defs/diagnostic"}}
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": ["id", "code", "severity", "side", "message", "suppressed_by"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "pattern": "^d[1-9][0-9]*$", "description": "Unique within the transaction"},
+        "code": {"type": "string", "pattern": "^[a-z][A-Za-z_]*(\\.[A-Za-z_]+)+$", "description": "Stable dotted code; see docs/diagnostics.md"},
+        "severity": {"enum": ["error", "warning", "info"]},
+        "side": {"enum": ["request", "response"]},
+        "message": {"type": "string", "description": "Human-readable; not stable, never matched programmatically"},
+        "instance": {"$ref": "#/$defs/instance"},
+        "schema": {"$ref": "#/$defs/schemaRef"},
+        "expected": {},
+        "actual": {},
+        "related": {"type": "array", "items": {"$ref": "#/$defs/id"}},
+        "caused_by": {"type": "array", "items": {"$ref": "#/$defs/id"}},
+        "children": {"type": "array", "items": {"$ref": "#/$defs/id"}, "description": "Branch diagnostics grouped under a oneOf/anyOf parent"},
+        "parent": {"$ref": "#/$defs/id"},
+        "suppressed_by": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/id"}]},
+        "reason": {"type": "string", "description": "validation.incomplete only: machine-readable cause (a diagnostic code)"},
+        "branch": {"type": "integer", "minimum": 0},
+        "detail": {"type": "object", "additionalProperties": {"type": "string"}}
+      }
+    },
+    "id": {"type": "string", "pattern": "^d[1-9][0-9]*$"},
+    "instance": {
+      "type": "object",
+      "required": ["location"],
+      "additionalProperties": false,
+      "properties": {
+        "location": {"enum": ["operation", "path", "query", "header", "cookie", "body", "status"]},
+        "name": {"type": "string", "description": "Parameter or header name"},
+        "pointer": {"type": "string", "description": "RFC 6901 JSON Pointer into the body"},
+        "span": {"$ref": "#/$defs/span"},
+        "missing": {"type": "array", "items": {"type": "string"}, "description": "Absent property names (schema.required)"}
+      }
+    },
+    "span": {
+      "type": "object",
+      "required": ["start", "end", "line", "column", "end_line", "end_column"],
+      "additionalProperties": false,
+      "description": "Bytes of the original decoded body. Offsets zero-based, end exclusive; lines/columns one-based, columns in UTF-8 bytes.",
+      "properties": {
+        "start": {"type": "integer", "minimum": 0},
+        "end": {"type": "integer", "minimum": 0},
+        "line": {"type": "integer", "minimum": 1},
+        "column": {"type": "integer", "minimum": 1},
+        "end_line": {"type": "integer", "minimum": 1},
+        "end_column": {"type": "integer", "minimum": 1},
+        "contextual": {"const": true, "description": "Closest existing ancestor, not the offending token"},
+        "ambiguous": {"const": true, "description": "Duplicate member names; the last occurrence is reported"}
+      }
+    },
+    "schemaRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pointer": {"type": "string"},
+        "relative": {"const": true, "description": "Pointer is relative to the root schema of the validated body"},
+        "uri": {"type": "string"},
+        "line": {"type": "integer", "minimum": 1},
+        "column": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

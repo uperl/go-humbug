@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://humbug.invalid/schema/protocol.schema.json",
+  "title": "Humbug Protocol v1 messages",
+  "description": "A command (client to sidecar) or a reply (sidecar to client); one per NDJSON line.",
+  "oneOf": [{"$ref": "#/$defs/command"}, {"$ref": "#/$defs/reply"}],
+  "$defs": {
+    "id": {
+      "description": "String or integer; echoed exactly, never coerced. Replies to unparsable commands use null.",
+      "oneOf": [{"type": "string"}, {"type": "integer"}]
+    },
+    "command": {
+      "type": "object",
+      "required": ["id", "type"],
+      "oneOf": [
+        {
+          "properties": {"id": {"$ref": "#/$defs/id"}, "type": {"const": "initialize"}, "params": {"$ref": "#/$defs/initializeParams"}},
+          "required": ["params"], "additionalProperties": false
+        },
+        {
+          "properties": {"id": {"$ref": "#/$defs/id"}, "type": {"const": "validate"}, "params": {"$ref": "#/$defs/validateParams"}},
+          "required": ["params"], "additionalProperties": false
+        },
+        {
+          "properties": {"id": {"$ref": "#/$defs/id"}, "type": {"const": "shutdown"}},
+          "additionalProperties": false
+        }
+      ]
+    },
+    "initializeParams": {
+      "type": "object",
+      "required": ["protocol_version", "spec"],
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {"const": 1},
+        "spec": {
+          "type": "object",
+          "required": ["path"],
+          "additionalProperties": false,
+          "properties": {"path": {"type": "string", "minLength": 1, "description": "Local file; relative paths resolve against the process working directory"}}
+        }
+      }
+    },
+    "headers": {
+      "type": "array",
+      "description": "Ordered name/value pairs; duplicates and original case preserved",
+      "items": {"type": "array", "prefixItems": [{"type": "string"}, {"type": "string"}], "items": false, "minItems": 2}
+    },
+    "body": {
+      "description": "Base64 of the original body bytes. Absent or null = no body; \"\" = explicitly empty body.",
+      "oneOf": [{"type": "null"}, {"type": "string", "contentEncoding": "base64"}]
+    },
+    "validateParams": {
+      "type": "object",
+      "required": ["request"],
+      "additionalProperties": false,
+      "properties": {
+        "request": {
+          "type": "object",
+          "required": ["method", "url"],
+          "additionalProperties": false,
+          "properties": {
+            "method": {"type": "string", "minLength": 1},
+            "url": {"type": "string", "description": "Effective absolute URL"},
+            "headers": {"$ref": "#/$defs/headers"},
+            "body_base64": {"$ref": "#/$defs/body"}
+          }
+        },
+        "response": {
+          "type": "object",
+          "required": ["status"],
+          "additionalProperties": false,
+          "properties": {
+            "status": {"type": "integer", "minimum": 100, "maximum": 599},
+            "headers": {"$ref": "#/$defs/headers"},
+            "body_base64": {"$ref": "#/$defs/body"}
+          }
+        },
+        "validate": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "request defaults to true; response defaults to true iff a response is supplied. Requesting a response check without a response, or disabling both, is an error.",
+          "properties": {"request": {"type": "boolean"}, "response": {"type": "boolean"}}
+        }
+      }
+    },
+    "reply": {
+      "type": "object",
+      "required": ["id", "type"],
+      "oneOf": [
+        {
+          "properties": {
+            "id": {"$ref": "#/$defs/id"},
+            "type": {"const": "result"},
+            "result": {"oneOf": [
+              {"$ref": "#/$defs/initializeResult"},
+              {"$ref": "diagnostic.schema.json"},
+              {"type": "object", "maxProperties": 0, "description": "shutdown acknowledgement"}
+            ]}
+          },
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "id": {"oneOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
+            "type": {"const": "error"},
+            "error": {"$ref": "#/$defs/error"}
+          },
+          "required": ["error"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "initializeResult": {
+      "type": "object",
+      "required": ["protocol_version", "specification"],
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {"const": 1},
+        "specification": {
+          "type": "object",
+          "required": ["openapi_version", "title"],
+          "additionalProperties": false,
+          "properties": {"openapi_version": {"type": "string"}, "title": {"type": "string"}}
+        }
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {"enum": [
+          "protocol.invalid_message", "protocol.unsupported_version", "protocol.unknown_command",
+          "protocol.not_initialized", "protocol.already_initialized", "protocol.line_too_long",
+          "spec.invalid", "validator.unsupported_input", "validator.internal"
+        ]},
+        "message": {"type": "string"}
+      }
+    }
+  }
+}

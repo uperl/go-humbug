@@ -3,6 +3,7 @@ package validation
 import (
 	"errors"
 	"fmt"
+	"mime"
 	"reflect"
 	"strconv"
 	"strings"
@@ -120,6 +121,23 @@ func (n *normalizer) one(e *verrors.ValidationError) {
 	case typ == "response" && sub == "contentType":
 		n.add(d.Diagnostic{Code: d.CodeBodyMediaType, Instance: &d.Instance{Location: "header", Name: "Content-Type"},
 			Message: "response body media type is not defined for this operation"})
+
+	case typ == "response" && sub == "header":
+		for _, f := range e.SchemaValidationErrors {
+			name := f.FieldName
+			if name == "" && len(f.InstancePath) > 0 {
+				name = f.InstancePath[0]
+			}
+			code, word := d.CodeResponseHeaderInv, "is invalid"
+			if lastSeg(f.KeywordLocation) == "required" {
+				code, word = d.CodeResponseHeaderReq, "is required but missing"
+			}
+			n.addDedup(d.Diagnostic{Code: code, Instance: &d.Instance{Location: "header", Name: name},
+				Message: fmt.Sprintf("response header %q %s", name, word)}, "")
+		}
+		if len(e.SchemaValidationErrors) == 0 {
+			n.unclassified(e)
+		}
 
 	case typ == "response" && sub == "statusCode":
 		n.add(d.Diagnostic{Code: d.CodeResponseStatus, Instance: &d.Instance{Location: "status"},
@@ -384,4 +402,29 @@ func nilToEmpty(s []string) []string {
 		return []string{}
 	}
 	return s
+}
+
+// noteUninspected marks the side incomplete when a body is present but is not a
+// JSON media type: the library only schema-validates JSON bodies, so any other
+// content has not been checked and must never be reported as conforming.
+func (n *normalizer) noteUninspected(mediaType string) {
+	if !n.hasBody || isJSON(mediaType) {
+		return
+	}
+	n.incomplet = true
+	detail := map[string]string{}
+	if mediaType != "" {
+		detail["media_type"] = mediaType
+	}
+	n.add(d.Diagnostic{Code: d.CodeIncomplete, Severity: d.SeverityInfo, Reason: "body.not_inspected",
+		Instance: &d.Instance{Location: "body"}, Detail: detail,
+		Message: "body was not schema-validated: only JSON bodies are inspected"})
+}
+
+func isJSON(contentType string) bool {
+	mt, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return false
+	}
+	return mt == "application/json" || strings.HasSuffix(mt, "+json")
 }

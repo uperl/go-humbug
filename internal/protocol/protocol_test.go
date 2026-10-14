@@ -35,6 +35,8 @@ func run(t *testing.T, lines ...string) []obj {
 		if err := json.Unmarshal([]byte(l), &o); err != nil {
 			t.Fatalf("stdout line is not JSON (contamination?): %q", l)
 		}
+		proto, _ := schemas(t)
+		conforms(t, proto, "reply", l)
 		replies = append(replies, o)
 	}
 	return replies
@@ -325,3 +327,104 @@ func TestGolden(t *testing.T) {
 }
 
 func itoa(n int) string { b, _ := json.Marshal(n); return string(b) }
+
+func TestNonJSONBodyIsIncompleteNeverValid(t *testing.T) {
+	for name, tc := range map[string]struct{ ct, url, body string }{
+		"text":   {"text/plain", "/notes", "hi"},
+		"binary": {"application/octet-stream", "/upload", "\x00\x01"},
+	} {
+		req := `{"method":"POST","url":"http://example.test` + tc.url + `","headers":[["Content-Type","` + tc.ct + `"]],"body_base64":"` + b64(tc.body) + `"}`
+		r := result(t, run(t, init0(), validate(2, req, "", ""))[1])
+		side := r["request"].(obj)
+		if r["valid"] == true || side["status"] != "incomplete" || side["complete"] != false {
+			t.Errorf("%s: %v", name, side)
+		}
+		d := side["diagnostics"].([]any)[0].(obj)
+		if d["code"] != "validation.incomplete" || d["reason"] != "body.not_inspected" || d["severity"] != "info" {
+			t.Errorf("%s diagnostic: %v", name, d)
+		}
+	}
+}
+
+func TestResponseArrayAndHeaders(t *testing.T) {
+	req := `{"method":"GET","url":"http://example.test/items","headers":[["Cookie","session=abcd"]]}`
+	body := `[{"id":1,"name":"a"},{"id":"2","name":"b"}]`
+	res := `{"status":200,"headers":[["Content-Type","application/json"]],"body_base64":"` + b64(body) + `"}`
+	r := result(t, run(t, init0(), validate(2, req, res, ""))[1])
+	var gotHeader, gotType bool
+	for _, x := range r["response"].(obj)["diagnostics"].([]any) {
+		d := x.(obj)
+		inst := d["instance"].(obj)
+		switch d["code"] {
+		case "response.header.required":
+			gotHeader = inst["location"] == "header" && inst["name"] == "X-Rate-Limit"
+		case "schema.type":
+			sp := inst["span"].(obj)
+			got := body[int(sp["start"].(float64)):int(sp["end"].(float64))]
+			gotType = inst["pointer"] == "/1/id" && got == `"2"`
+		}
+	}
+	if !gotHeader || !gotType {
+		t.Errorf("header=%v type=%v: %v", gotHeader, gotType, r["response"])
+	}
+}
+
+func TestCookieAndArrayQueryParameters(t *testing.T) {
+	missing := `{"method":"GET","url":"http://example.test/items"}`
+	badItem := `{"method":"GET","url":"http://example.test/items?ids=1&ids=x","headers":[["Cookie","session=abcd"]]}`
+	r := run(t, init0(), validate(2, missing, "", ""), validate(3, badItem, "", ""))
+	c := codes(result(t, r[1])["request"].(obj))
+	if len(c) != 1 || c[0] != "parameter.required" {
+		t.Errorf("missing cookie: %v", c)
+	}
+	d := result(t, r[1])["request"].(obj)["diagnostics"].([]any)[0].(obj)["instance"].(obj)
+	if d["location"] != "cookie" || d["name"] != "session" {
+		t.Errorf("cookie instance: %v", d)
+	}
+	if c := codes(result(t, r[2])["request"].(obj)); len(c) != 1 || c[0] != "parameter.invalid" {
+		t.Errorf("bad array item: %v", c)
+	}
+}
+
+// TestOpenAPI30Semantics exercises 3.0-only keywords (nullable, boolean
+// exclusiveMinimum) in a full transaction, which the 3.1 fixtures do not cover.
+func TestOpenAPI30Semantics(t *testing.T) {
+	spec := filepath.Join(t.TempDir(), "v30.yaml")
+	os.WriteFile(spec, []byte(`openapi: 3.0.3
+info: {title: v30, version: '1'}
+paths:
+  /n:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                a: {type: integer, nullable: true}
+                b: {type: integer, minimum: 0, exclusiveMinimum: true}
+      responses: {'204': {description: ok}}
+`), 0o644)
+	post := func(body string) string {
+		return `{"method":"POST","url":"http://example.test/n","headers":[["Content-Type","application/json"]],"body_base64":"` + b64(body) + `"}`
+	}
+	r := run(t,
+		`{"id":1,"type":"initialize","params":{"protocol_version":1,"spec":{"path":"`+spec+`"}}}`,
+		validate(2, post(`{"a":null,"b":1}`), "", ""),
+		validate(3, post(`{"a":null,"b":0}`), "", ""),
+		validate(4, post(`{"a":"x"}`), "", ""),
+	)
+	if v := result(t, r[0])["specification"].(obj)["openapi_version"]; v != "3.0.3" {
+		t.Errorf("version %v", v)
+	}
+	if res := result(t, r[1]); res["valid"] != true {
+		t.Errorf("nullable a and b=1 should be valid: %v", res)
+	}
+	if c := codes(result(t, r[2])["request"].(obj)); len(c) != 1 || c[0] != "schema.exclusiveMinimum" && c[0] != "schema.minimum" {
+		t.Errorf("b=0 must violate the exclusive minimum: %v", c)
+	}
+	if c := codes(result(t, r[3])["request"].(obj)); len(c) != 1 || c[0] != "schema.type" {
+		t.Errorf("a=\"x\": %v", c)
+	}
+}

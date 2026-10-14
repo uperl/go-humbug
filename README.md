@@ -27,10 +27,16 @@ is for process diagnostics only. See `docs/protocol.md` for the protocol as impl
     internal/validation/  pb33f wrapper and normalizer (pb33f types stay here)
     internal/diagnostics/ wire result/diagnostic types, ordering, ID assignment
     internal/sourcemap/   JSON pointer -> byte span / line / column index
+    schema/               protocol and diagnostic JSON Schemas
     testdata/             specs, cases, golden outputs
     examples/python/      stdlib-only example client
 
-## Not done yet
+## Schemas and docs
 
-`schema/*.json` (normative JSON Schemas), `docs/diagnostics.md`, cookie/array/allOf/binary
-fixtures, 3.0 vs 3.1 transaction tests. See `docs/protocol.md` "Known gaps".
+`schema/protocol.schema.json` and `schema/diagnostic.schema.json` are normative; tests validate
+every reply against them. `docs/protocol.md` and `docs/diagnostics.md` describe the behavior.
+
+## Known gaps
+
+See `docs/protocol.md` "Known gaps". Notably: only JSON bodies are schema-validated (others are
+reported `incomplete`), and cross-file schema locations and large/gzip bodies are untested.

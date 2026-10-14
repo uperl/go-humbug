@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/pb33f/libopenapi"
 	validator "github.com/pb33f/libopenapi-validator"
@@ -159,6 +160,7 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 			body = *p.Request.Body
 		}
 		n := newNormalizer(diagnostics.SideRequest, body, p.Request.Body != nil, e.model)
+		n.noteUninspected(contentType(p.Request.Headers))
 		res.Request = n.result(errs)
 	}
 
@@ -171,6 +173,7 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 			body = *p.Response.Body
 		}
 		n := newNormalizer(diagnostics.SideResponse, body, p.Response.Body != nil, e.model)
+		n.noteUninspected(contentType(p.Response.Headers))
 		res.Response = n.result(errs)
 	}
 
@@ -192,4 +195,14 @@ func operationID(pi *v3.PathItem, method string) (string, bool) {
 		return "", false
 	}
 	return op.OperationId, true
+}
+
+// contentType returns the first Content-Type value (case-insensitive), or "".
+func contentType(h []Header) string {
+	for _, p := range h {
+		if strings.EqualFold(p[0], "content-type") {
+			return p[1]
+		}
+	}
+	return ""
 }

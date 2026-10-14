@@ -276,5 +276,145 @@
    },
    "body": "{\"id\":\"bad\"}"
   }
+ },
+ {
+  "id": "F17",
+  "desc": "valid cookie and array query",
+  "expect": "valid",
+  "req": {
+   "method": "GET",
+   "url": "/items?ids=1&ids=2",
+   "headers": {
+    "Cookie": "session=abcd"
+   }
+  },
+  "res": {
+   "status": 200,
+   "headers": {
+    "Content-Type": "application/json",
+    "X-Rate-Limit": "5"
+   },
+   "body": "[{\"id\":1,\"name\":\"a\"}]"
+  }
+ },
+ {
+  "id": "F18",
+  "desc": "missing required cookie",
+  "expect": "request-invalid",
+  "req": {
+   "method": "GET",
+   "url": "/items",
+   "headers": {}
+  }
+ },
+ {
+  "id": "F19",
+  "desc": "array query element wrong type",
+  "expect": "request-invalid",
+  "req": {
+   "method": "GET",
+   "url": "/items?ids=1&ids=x",
+   "headers": {
+    "Cookie": "session=abcd"
+   }
+  }
+ },
+ {
+  "id": "F20",
+  "desc": "response array item invalid and rate-limit header missing",
+  "expect": "response-invalid",
+  "req": {
+   "method": "GET",
+   "url": "/items",
+   "headers": {
+    "Cookie": "session=abcd"
+   }
+  },
+  "res": {
+   "status": 200,
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "body": "[{\"id\":1,\"name\":\"a\"},{\"id\":\"2\",\"name\":\"b\"}]"
+  }
+ },
+ {
+  "id": "F21",
+  "desc": "allOf: one branch fails independently",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/orders",
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "body": "{\"email\":\"a@b\",\"qty\":\"many\"}"
+  }
+ },
+ {
+  "id": "F22",
+  "desc": "allOf: both branches fail",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/orders",
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "body": "{\"qty\":1,\"extra\":true}"
+  }
+ },
+ {
+  "id": "F23",
+  "desc": "binary body to octet-stream operation",
+  "expect": "incomplete",
+  "req": {
+   "method": "POST",
+   "url": "/upload",
+   "headers": {
+    "Content-Type": "application/octet-stream"
+   },
+   "body": "\u0000\u0001binary"
+  }
+ },
+ {
+  "id": "F24",
+  "desc": "non-JSON text body too short",
+  "expect": "incomplete",
+  "req": {
+   "method": "POST",
+   "url": "/notes",
+   "headers": {
+    "Content-Type": "text/plain"
+   },
+   "body": "hi"
+  }
+ },
+ {
+  "id": "F25",
+  "desc": "non-JSON text body ok",
+  "expect": "incomplete",
+  "req": {
+   "method": "POST",
+   "url": "/notes",
+   "headers": {
+    "Content-Type": "text/plain"
+   },
+   "body": "hello"
+  }
+ },
+ {
+  "id": "F26",
+  "desc": "escaped key and unicode value, wrong type",
+  "expect": "request-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/users",
+   "headers": {
+    "Content-Type": "application/json",
+    "X-Request-Id": "abc"
+   },
+   "body": "{\"name\":\"Zoë\",\"age\":\"x\",\"profile\":{\"bio\":\"é\"},\"a/b\":1}"
+  }
  }
 ]
