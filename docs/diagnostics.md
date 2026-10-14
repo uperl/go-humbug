@@ -109,7 +109,8 @@ Only two rules exist. Sharing a path or similar wording never suppresses anythin
    `minItems`, …) if an array was expected, along with any finding below that pointer. Sibling
    properties, other keywords at the pointer, and other `oneOf`/`anyOf` branches are never touched.
 
-Rule 2 is defensive. JSON Schema ignores object and array keywords on values of the wrong type, so
+Rule 2 is defensive, and kept deliberately (decided). JSON Schema ignores object and array
+keywords on values of the wrong type, so
 pb33f v0.16.1 does not emit such cascades (probed: string, array and null where an object is
 expected, including inside `allOf` and `oneOf`). The rule is covered by unit tests, not by a
 fixture, and exists so a library change or a different validator cannot reintroduce noisy output.

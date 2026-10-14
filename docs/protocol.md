@@ -214,8 +214,11 @@ well under a second.
 
 - Missing-property names are only filled when unambiguous (not inside `oneOf`/`anyOf` branches).
 - Non-JSON bodies are checked only when their schema is a string (see `diagnostics.md`, "Non-JSON
-  bodies"). Form, XML and multipart bodies under object schemas stay `incomplete`; parsing them is
-  deferred. Format validity (for example VCL syntax) is never checked.
+  bodies"). Form, XML and multipart bodies under object schemas currently stay `incomplete`.
+  Planned (decided, not yet implemented): support XML and URL-encoded form bodies through the
+  library's opt-in decoders. **Multipart is deferred (decided)**: the library's multipart decoder
+  only reads form field values and ignores per-part content types, encodings and files, so it
+  is not worth enabling yet. Format validity (for example VCL syntax) is never checked.
 - **Security requirements are deferred (decided).** `security.*` codes are in the taxonomy but are
   not produced, and security schemes are not checked.
 - Untested: path styles other than simple, label and matrix.
