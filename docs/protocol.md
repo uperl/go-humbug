@@ -254,7 +254,41 @@ described under "Limits".
   `style: matrix` (`;id=5`) is validated with the prefix still attached, so a valid request is
   reported `parameter.invalid`. Humbug does not mask this. Fixtures F27 and F29 and
   `TestPathParameterStyles` pin the behavior and fail if an upgrade changes it. Simple-style arrays
-  (`/list/1,2,3`) work.
+  (`/list/1,2,3`) work. Label and matrix **arrays** are broken the same way: valid requests
+  (`.1.2.3`, `;ids=1,2,3`, `;ids=1;ids=2;ids=3`) are reported `parameter.invalid`, and a value that
+  is not label-encoded (`1,2,3`) is accepted. See "Array and object parameters" below.
+- **Array and object parameters are checked loosely** (probed with the pinned version; scalar
+  parameters are fine). Humbug does not mask or replace any of this. Each item below is pinned by
+  `TestParameterLibraryBehavior` (over 150 cases on `testdata/specs/params.yaml`, each recording what
+  OpenAPI says and what the library does), which fails when an upgrade changes any of them, in
+  either direction. Only missed violations unless noted.
+  - **Array items skip most keywords, in every location** (query, header, cookie, path, in every
+    style): `minimum`, `maximum`, `multipleOf`, `pattern`, `minLength` and `maxLength` are not
+    enforced, and neither is `format` (which is annotation-only by default in JSON Schema 2020-12 in
+    any case). Item `type` and `enum` are enforced.
+  - **The default query array style (`form` with `explode`) is validated per occurrence.** Each
+    repeated value is checked as its own one-item array, so `minItems: 2` rejects a *valid*
+    two-item array (`v=1&v=2`: a false violation), and `maxItems` and `uniqueItems` are missed. A
+    comma inside a value splits it into two items although with `explode` a comma is data, which
+    gives false violations (an `enum` containing `"a,b"`) and missed ones.
+  - **Header, cookie and path arrays skip `minItems`, `maxItems` and `uniqueItems`.** Query arrays
+    without `explode`, and `pipeDelimited` ones, enforce them correctly.
+  - **Lenient scalar parsing.** Booleans such as `1` and `TRUE` are accepted; an odd number of items
+    in a `key,value` object list is accepted. Integers accept `007`, `5.0`, `1e2` and, in a path,
+    `+5` (a query integer rejects `+5`); numbers accept `.5` and `5.`; an integer beyond int64 is
+    rejected though JSON Schema allows it; `ids=1&ids=2` is accepted although `explode` is false.
+  - **Repeated values:** every occurrence of a repeated scalar query parameter is validated (unlike
+    request headers, where only the first line is), and no warning is given. Duplicate cookie names
+    validate as if the last one wins.
+
+  What was probed and works: an **empty query or cookie value is validated, not treated as absent**
+  (unlike a request header; `limit=` fails an integer schema, `req=` fails `minLength`, and
+  `allowEmptyValue: true` is honored); percent-encoded parameter names and values; undeclared
+  parameters are ignored and names are case-sensitive; `+` is a space in a query (a literal plus is
+  `%2B`) and literal in a path; scalar constraints; `deepObject` (including `required`); form objects
+  without `explode`; simple-style path and header objects; cookies, including quoted values; an
+  encoded slash inside one path segment; and array-level constraints for non-exploded and
+  pipe-delimited query arrays.
 - **Trailing and doubled slashes are routed** to the path without them (see "Routing", where this
   is listed as a deviation from what the protocol expects).
 - **Custom HTTP methods are not supported (deferred, decided).** OpenAPI 3.1 cannot declare them:
@@ -285,7 +319,10 @@ described under "Limits".
   is not worth enabling yet. Format validity (for example VCL syntax) is never checked.
 - **Security requirements are deferred (decided).** `security.*` codes are in the taxonomy but are
   not produced, and security schemes are not checked.
-- Untested: path styles other than simple, label and matrix.
+- Parameter styles (query, path, header, cookie; arrays and objects) have been probed against the
+  pinned library; see "Array and object parameters" under "Known library limitations". Not probed:
+  parameters serialized with `content` instead of `schema`, and `style: form` objects with `explode`
+  in a cookie.
 - Repeated lines of an ordinary single-valued request header: the library validates only the first
   line (response headers: every line). Humbug reports the repetition (`header.repeated`, a
   warning) but does not validate the later request lines individually.

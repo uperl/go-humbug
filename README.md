@@ -53,4 +53,6 @@ up front and refuse any network access, so nothing is ever fetched.
 ## Known gaps
 
 See `docs/protocol.md` "Known gaps". Notably: structured non-JSON bodies (form, XML,
-multipart) are reported `incomplete`, and pb33f mis-handles label/matrix path parameters (pinned by a test).
+multipart) are reported `incomplete`; pb33f mis-handles label/matrix path parameters and validates
+array parameters loosely (item keywords and, in most styles, array-level constraints are not
+enforced). These are documented under "Known library limitations" and pinned by tests.

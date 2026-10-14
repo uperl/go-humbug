@@ -1,0 +1,175 @@
+openapi: 3.1.0
+info: {title: Parameter handling probes, version: "1"}
+# One operation per parameter, so each case is isolated. Used by TestParameterLibraryBehavior,
+# which pins how the pinned pb33f version treats these parameters (docs/protocol.md,
+# "Known library limitations").
+paths:
+  # ---- query scalars
+  /q/limit:
+    get:
+      parameters: [{name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100}}]
+      responses: {'204': {description: ok}}
+  /q/req:
+    get:
+      parameters: [{name: req, in: query, required: true, schema: {type: string, minLength: 2}}]
+      responses: {'204': {description: ok}}
+  /q/note:
+    get:
+      parameters: [{name: note, in: query, schema: {type: string}}]
+      responses: {'204': {description: ok}}
+  /q/flag:
+    get:
+      parameters: [{name: flag, in: query, allowEmptyValue: true, schema: {type: string}}]
+      responses: {'204': {description: ok}}
+  /q/active:
+    get:
+      parameters: [{name: active, in: query, schema: {type: boolean}}]
+      responses: {'204': {description: ok}}
+  /q/int:
+    get:
+      parameters: [{name: int, in: query, schema: {type: integer}}]
+      responses: {'204': {description: ok}}
+  /q/ratio:
+    get:
+      parameters: [{name: ratio, in: query, schema: {type: number}}]
+      responses: {'204': {description: ok}}
+  /q/pat:
+    get:
+      parameters: [{name: pat, in: query, schema: {type: string, pattern: '^a b$'}}]
+      responses: {'204': {description: ok}}
+  /q/pat2:
+    get:
+      parameters: [{name: pat2, in: query, schema: {type: string, pattern: '^a\+b$'}}]
+      responses: {'204': {description: ok}}
+  # ---- query arrays and objects
+  /q/ids:
+    get:
+      parameters: [{name: ids, in: query, explode: false, schema: {type: array, items: {type: integer}}}]
+      responses: {'204': {description: ok}}
+  /q/arr:
+    get:
+      parameters: [{name: arr, in: query, schema: {type: array, items: {type: integer}}}]
+      responses: {'204': {description: ok}}
+  /q/filter:
+    get:
+      parameters:
+        - {name: filter, in: query, style: deepObject, explode: true, schema: {type: object, required: [a], properties: {a: {type: integer}, b: {type: string}}}}
+      responses: {'204': {description: ok}}
+  /q/obj:
+    get:
+      parameters:
+        - {name: obj, in: query, style: form, explode: false, schema: {type: object, properties: {a: {type: integer}, b: {type: integer}}}}
+      responses: {'204': {description: ok}}
+  /q/tags:
+    get:
+      parameters: [{name: tags, in: query, schema: {type: array, maxItems: 3, items: {type: string}}}]
+      responses: {'204': {description: ok}}
+  # ---- array-level constraints, one operation per location
+  /a/q:
+    get:
+      parameters: [{name: v, in: query, schema: {type: array, minItems: 2, maxItems: 3, uniqueItems: true, items: {type: integer}}}]
+      responses: {'204': {description: ok}}
+  /a/qn:
+    get:
+      parameters: [{name: v, in: query, explode: false, schema: {type: array, minItems: 2, maxItems: 3, uniqueItems: true, items: {type: integer}}}]
+      responses: {'204': {description: ok}}
+  /a/pipe:
+    get:
+      parameters: [{name: v, in: query, style: pipeDelimited, explode: false, schema: {type: array, minItems: 2, maxItems: 3, uniqueItems: true, items: {type: integer}}}]
+      responses: {'204': {description: ok}}
+  /a/h:
+    get:
+      parameters: [{name: X-V, in: header, schema: {type: array, minItems: 2, maxItems: 3, uniqueItems: true, items: {type: integer}}}]
+      responses: {'204': {description: ok}}
+  /a/c:
+    get:
+      parameters: [{name: v, in: cookie, explode: false, schema: {type: array, minItems: 2, maxItems: 3, uniqueItems: true, items: {type: integer}}}]
+      responses: {'204': {description: ok}}
+  /a/p/{v}:
+    get:
+      parameters: [{name: v, in: path, required: true, schema: {type: array, minItems: 2, maxItems: 3, uniqueItems: true, items: {type: integer}}}]
+      responses: {'204': {description: ok}}
+  # ---- array items: pattern and enum with commas, in the default query style
+  /a/qs:
+    get:
+      parameters: [{name: v, in: query, schema: {type: array, items: {type: string, pattern: '^[a-z]+$'}}}]
+      responses: {'204': {description: ok}}
+  /a/qe:
+    get:
+      parameters: [{name: v, in: query, schema: {type: array, items: {type: string, enum: ['a,b', c]}}}]
+      responses: {'204': {description: ok}}
+  # ---- array item keywords, one operation per location (minimum 5 on integers)
+  /i/q:
+    get:
+      parameters: [{name: v, in: query, schema: {type: array, items: {type: integer, minimum: 5, maximum: 10, multipleOf: 5}}}]
+      responses: {'204': {description: ok}}
+  /i/qn:
+    get:
+      parameters: [{name: v, in: query, explode: false, schema: {type: array, items: {type: integer, minimum: 5, maximum: 10, multipleOf: 5}}}]
+      responses: {'204': {description: ok}}
+  /i/pipe:
+    get:
+      parameters: [{name: v, in: query, style: pipeDelimited, explode: false, schema: {type: array, items: {type: integer, minimum: 5, maximum: 10, multipleOf: 5}}}]
+      responses: {'204': {description: ok}}
+  /i/h:
+    get:
+      parameters: [{name: X-V, in: header, schema: {type: array, items: {type: integer, minimum: 5, maximum: 10, multipleOf: 5}}}]
+      responses: {'204': {description: ok}}
+  /i/c:
+    get:
+      parameters: [{name: v, in: cookie, explode: false, schema: {type: array, items: {type: integer, minimum: 5, maximum: 10, multipleOf: 5}}}]
+      responses: {'204': {description: ok}}
+  /i/p/{v}:
+    get:
+      parameters: [{name: v, in: path, required: true, schema: {type: array, items: {type: integer, minimum: 5, maximum: 10, multipleOf: 5}}}]
+      responses: {'204': {description: ok}}
+  /s/q:
+    get:
+      parameters: [{name: v, in: query, explode: false, schema: {type: array, items: {type: string, pattern: '^[a-z]+$', minLength: 2, maxLength: 3}}}]
+      responses: {'204': {description: ok}}
+  /s/h:
+    get:
+      parameters: [{name: X-V, in: header, schema: {type: array, items: {type: string, pattern: '^[a-z]+$', minLength: 2, maxLength: 3}}}]
+      responses: {'204': {description: ok}}
+  # ---- cookies
+  /c/session:
+    get:
+      parameters: [{name: session, in: cookie, required: true, schema: {type: string, minLength: 4}}]
+      responses: {'204': {description: ok}}
+  /c/n:
+    get:
+      parameters: [{name: n, in: cookie, schema: {type: integer}}]
+      responses: {'204': {description: ok}}
+  # ---- path
+  /p/int/{id}:
+    get:
+      parameters: [{name: id, in: path, required: true, schema: {type: integer}}]
+      responses: {'204': {description: ok}}
+  /p/plus/{s}:
+    get:
+      parameters: [{name: s, in: path, required: true, schema: {type: string, pattern: '^a\+b$'}}]
+      responses: {'204': {description: ok}}
+  /p/slash/{s}:
+    get:
+      parameters: [{name: s, in: path, required: true, schema: {type: string, pattern: '^a/b$'}}]
+      responses: {'204': {description: ok}}
+  /p/arr/{ids}:
+    get:
+      parameters: [{name: ids, in: path, required: true, style: simple, schema: {type: array, items: {type: integer}}}]
+      responses: {'204': {description: ok}}
+  /p/lab/{ids}:
+    get:
+      parameters: [{name: ids, in: path, required: true, style: label, schema: {type: array, items: {type: integer}}}]
+      responses: {'204': {description: ok}}
+  /p/mat/{ids}:
+    get:
+      parameters: [{name: ids, in: path, required: true, style: matrix, schema: {type: array, items: {type: integer}}}]
+      responses: {'204': {description: ok}}
+  /p/matx/{ids}:
+    get:
+      parameters: [{name: ids, in: path, required: true, style: matrix, explode: true, schema: {type: array, items: {type: integer}}}]
+      responses: {'204': {description: ok}}
+  /p/obj/{o}:
+    get:
+      parameters: [{name: o, in: path, required: true, style: simple, schema: {type: object, properties: {a: {type: integer}, b: {type: integer}}}}]
+      responses: {'204': {description: ok}}
