@@ -57,3 +57,7 @@ See `docs/protocol.md` "Known gaps". Notably: multipart bodies are reported `inc
 bodies need `xml.name` on the root schema to be inspected; pb33f mis-handles label/matrix path parameters and validates
 array parameters loosely (item keywords and, in most styles, array-level constraints are not
 enforced). These are documented under "Known library limitations" and pinned by tests.
+
+## License
+
+MIT; see `LICENSE`.
