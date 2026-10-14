@@ -688,5 +688,51 @@
    },
    "body": "[]"
   }
+ },
+ {
+  "id": "F47",
+  "desc": "204 response carries a body the operation does not declare: warning, still valid",
+  "expect": "valid",
+  "req": {
+   "method": "POST",
+   "url": "/contacts",
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "body": "{\"email\":\"a@b\"}"
+  },
+  "res": {
+   "status": 204,
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "body": "{\"x\":1}"
+  }
+ },
+ {
+  "id": "F48",
+  "desc": "request body sent to an operation with no requestBody: warning, still valid",
+  "expect": "valid",
+  "req": {
+   "method": "GET",
+   "url": "/users/7",
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "body": "{\"x\":1}"
+  }
+ },
+ {
+  "id": "F49",
+  "desc": "200 with no body and no Content-Type: nothing to check, valid",
+  "expect": "valid",
+  "req": {
+   "method": "GET",
+   "url": "/users/7"
+  },
+  "res": {
+   "status": 200,
+   "headers": {}
+  }
  }
 ]

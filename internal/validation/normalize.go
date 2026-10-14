@@ -33,6 +33,7 @@ type normalizer struct {
 	seen      map[string]bool
 	incomplet bool
 	noSpans   bool                  // body is not JSON: findings carry no pointer or span
+	sentCT    bool                  // the message carried a Content-Type header
 	decls     map[string]headerDecl // declared headers by lower-cased name
 }
 
@@ -127,6 +128,11 @@ func (n *normalizer) one(e *verrors.ValidationError) {
 			Message: "request body media type is not defined for this operation"})
 
 	case typ == "response" && sub == "contentType":
+		// A response with no body and no Content-Type has no media type to check; the library
+		// reports one anyway. Nothing is wrong, so the finding is dropped.
+		if !n.sentCT && len(n.body) == 0 {
+			return
+		}
 		n.add(d.Diagnostic{Code: d.CodeBodyMediaType, Instance: &d.Instance{Location: "header", Name: "Content-Type"},
 			Message: "response body media type is not defined for this operation"})
 

@@ -187,6 +187,8 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 			errs = e.emptyHeaderParams(n, p.Request.Headers, errs)
 			n.warnRepeated(p.Request.Headers)
 		}
+		_, n.sentCT = firstLine(p.Request.Headers, "content-type")
+		e.warnUndeclaredBody(n, op, 0, p.Request.Headers, bodyBytes(p.Request.Body))
 		e.inspectNonJSON(n, op, 0, p.Request.Headers, bodyBytes(p.Request.Body))
 		res.Request = n.result(errs)
 	}
@@ -200,6 +202,8 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 			n.decls = responseHeaderDecls(op, p.Response.Status)
 			n.warnRepeated(p.Response.Headers)
 		}
+		_, n.sentCT = firstLine(p.Response.Headers, "content-type")
+		e.warnUndeclaredBody(n, op, p.Response.Status, p.Response.Headers, bodyBytes(p.Response.Body))
 		e.inspectNonJSON(n, op, p.Response.Status, p.Response.Headers, bodyBytes(p.Response.Body))
 		res.Response = n.result(errs)
 	}

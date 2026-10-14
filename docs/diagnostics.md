@@ -24,6 +24,7 @@ diagnostics (`validation.incomplete`) explain why a side is `complete: false` an
 | `parameter.invalid` | Parameter present but fails its schema (including array items). `detail.empty` is `"true"` when a header parameter was sent empty | `location`, `name` |
 | `body.required` | Operation requires a body and none was supplied (absent, not empty) | `body` |
 | `body.decode` | Body present but not decodable (malformed JSON, or empty) | `body`, zero-width `span` at the parse error |
+| `body.undeclared` | A body was sent where the matched operation declares no content for it: a request with no `requestBody`, or a response (such as a `204`) whose definition has no content. **Warning**, not a violation; `detail.media_type` has the sent type when there was one | `body` |
 | `body.media_type` | Content-Type not defined for the operation | `header` `Content-Type` |
 | `response.status` | Status code not defined for the operation | `status` |
 | `response.header.required` | Required response header missing | `header`, `name` |
@@ -41,6 +42,22 @@ check as a string, or a body with no usable Content-Type; `detail.media_type` ha
 `body.charset_unsupported` (a text body declared in a charset other than UTF-8 or US-ASCII;
 `detail.charset`), `operation.not_found` and `operation.method_not_allowed` (response side could
 not be routed).
+
+## Undeclared and absent bodies
+
+- **Undeclared bodies are a warning** (`body.undeclared`). It is only raised when the operation was
+  matched and the message's definition exists but declares no content, and the body is non-empty.
+  An empty or absent body is not a body. A response status the operation does not define at all
+  is reported as `response.status` instead, because whether a body is declared is unknowable.
+  The warning does not affect `valid` or `has_violations`.
+- **A response with no body and no `Content-Type` is valid.** There is no media type to check,
+  so the library's "media type" finding for it is dropped. A body sent without a `Content-Type`,
+  or a `Content-Type` the operation does not declare, is still reported.
+- **An empty body with no `Content-Type` is not "uninspected"** (there is nothing to inspect). With
+  a `Content-Type`, an empty body is validated like any other (an empty string can violate
+  `minLength`).
+- A missing response body is never a finding: OpenAPI has no "required response body", unlike a
+  required request body (`body.required`).
 
 ## Non-JSON bodies
 

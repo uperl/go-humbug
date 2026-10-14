@@ -48,8 +48,10 @@ func (e *Engine) inspectNonJSON(n *normalizer, op *v3.Operation, status int, hea
 	}
 	mt, params, err := mime.ParseMediaType(ct)
 	if err != nil {
-		n.noteUninspected(ct) // content is declared but there is no usable Content-Type
-		return
+		if len(body) > 0 {
+			n.noteUninspected(ct) // content is declared but there is no usable Content-Type
+		}
+		return // an empty body has nothing to inspect (with a Content-Type it is validated below)
 	}
 	media := matchMedia(content, mt)
 	if media == nil {
@@ -197,4 +199,34 @@ func stringLike(s *base.Schema) bool {
 	structured := len(s.AllOf)+len(s.OneOf)+len(s.AnyOf) > 0 || s.Not != nil || s.Items != nil ||
 		(s.Properties != nil && s.Properties.Len() > 0) || len(s.PrefixItems) > 0
 	return !structured
+}
+
+// warnUndeclaredBody reports a body sent where the matched operation declares no content for it:
+// a request with no requestBody, or a response whose definition has no content (a 204 carrying a
+// body, say). It is a warning, not a violation. Nothing is said when the operation could not be
+// matched, when the response status is not defined at all (that is its own finding), or when the
+// body is absent or empty.
+func (e *Engine) warnUndeclaredBody(n *normalizer, op *v3.Operation, status int, headers []Header, body []byte) {
+	if op == nil || len(body) == 0 {
+		return
+	}
+	var known, declared bool
+	if n.who == d.SideRequest {
+		known = true
+		declared = op.RequestBody != nil && op.RequestBody.Content != nil && op.RequestBody.Content.Len() > 0
+	} else {
+		resp := responseFor(op, status)
+		known = resp != nil
+		declared = resp != nil && resp.Content != nil && resp.Content.Len() > 0
+	}
+	if !known || declared {
+		return
+	}
+	detail := map[string]string{}
+	if mt, _, err := mime.ParseMediaType(contentType(headers)); err == nil {
+		detail["media_type"] = mt
+	}
+	n.add(d.Diagnostic{Code: d.CodeBodyUndeclared, Severity: d.SeverityWarning, Detail: detail,
+		Instance: &d.Instance{Location: "body"},
+		Message:  "a body was sent but the operation declares no content for it"})
 }

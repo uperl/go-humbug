@@ -36,6 +36,7 @@ const (
 	CodeBodyMediaType        = "body.media_type"
 	CodeBodyDecode           = "body.decode"
 	CodeBodyRequired         = "body.required"
+	CodeBodyUndeclared       = "body.undeclared"
 	CodeResponseStatus       = "response.status"
 	CodeResponseHeaderReq    = "response.header.required"
 	CodeSchemaOneOfNoMatch   = "schema.oneOf.no_match"

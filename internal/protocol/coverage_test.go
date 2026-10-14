@@ -481,3 +481,116 @@ func TestDeclaredContentWithoutContentTypeStaysIncomplete(t *testing.T) {
 		t.Errorf("declared content, no Content-Type: %v", r)
 	}
 }
+
+// ---- undeclared bodies (warning) and bodiless responses ----
+
+func respRaw(status int, h hdrs, body *string) string {
+	b := ""
+	if body != nil {
+		b = `,"body_base64":"` + b64(*body) + `"`
+	}
+	return `{"status":` + itoa(status) + `,"headers":` + h.json() + b + `}`
+}
+
+func sp(s string) *string { return &s }
+
+func TestUndeclaredBodiesAreWarnings(t *testing.T) {
+	j, tx := hdrs{{"Content-Type", "application/json"}}, hdrs{{"Content-Type", "text/plain"}}
+	post := `{"method":"POST","url":"http://example.test/contacts","headers":[["Content-Type","application/json"]],"body_base64":"` + b64(`{"email":"a@b"}`) + `"}`
+	only := `{"response":true,"request":false}`
+	r := run(t, init0(),
+		validate(2, post, respRaw(204, j, sp(`{"x":1}`)), only), // 204 declares no content
+		validate(3, post, respRaw(204, nil, sp(`junk`)), only),  // no Content-Type
+		validate(4, post, respRaw(204, tx, sp(`junk`)), only),   // non-JSON
+		validate(5, post, respRaw(204, j, sp(``)), only),        // explicitly empty body: nothing sent
+		validate(6, post, respRaw(204, j, nil), only),           // no body
+		validate(7, `{"method":"GET","url":"http://example.test/users/7","headers":[["Content-Type","application/json"]],"body_base64":"`+b64(`{"x":1}`)+`"}`, "", ""), // request, no requestBody declared
+		validate(8, `{"method":"GET","url":"http://example.test/users/7","headers":[],"body_base64":"`+b64(`junk`)+`"}`, "", ""),
+		validate(9, `{"method":"GET","url":"http://example.test/users/7","headers":[["Content-Type","application/json"]],"body_base64":""}`, "", ""),
+	)
+	for i, label := range map[int]string{1: "json", 2: "no Content-Type", 3: "text"} {
+		res := result(t, r[i])
+		d := findCode(diagsOf(res, "response"), "body.undeclared")
+		if d == nil || d["severity"] != "warning" || d["instance"].(obj)["location"] != "body" {
+			t.Errorf("%s: response body on a 204: %v", label, diagsOf(res, "response"))
+			continue
+		}
+		// A warning is a fact, not a violation.
+		if res["valid"] != true || res["complete"] != true || res["has_violations"] != false {
+			t.Errorf("%s: warning must not affect validity: %v", label, res)
+		}
+	}
+	if det := findCode(diagsOf(result(t, r[1]), "response"), "body.undeclared")["detail"].(obj); det["media_type"] != "application/json" {
+		t.Errorf("media type detail: %v", det)
+	}
+	if det, _ := findCode(diagsOf(result(t, r[2]), "response"), "body.undeclared")["detail"].(obj); det["media_type"] != nil {
+		t.Errorf("no media type when none was sent: %v", det)
+	}
+	for _, i := range []int{4, 5} {
+		if len(diagsOf(result(t, r[i]), "response")) != 0 {
+			t.Errorf("an empty or absent body is not an undeclared body: %v", diagsOf(result(t, r[i]), "response"))
+		}
+	}
+	for _, i := range []int{6, 7} {
+		res := result(t, r[i])
+		if d := findCode(diagsOf(res, "request"), "body.undeclared"); d == nil || d["severity"] != "warning" || res["valid"] != true || res["complete"] != true {
+			t.Errorf("request body with no requestBody declared: %v", res)
+		}
+	}
+	if len(diagsOf(result(t, r[8]), "request")) != 0 {
+		t.Errorf("empty request body: %v", diagsOf(result(t, r[7]), "request"))
+	}
+}
+
+func TestUndeclaredBodyNotReportedWhenThereIsNothingToCompareTo(t *testing.T) {
+	j := hdrs{{"Content-Type", "application/json"}}
+	post := `{"method":"POST","url":"http://example.test/users","headers":[["Content-Type","application/json"],["X-Request-Id","abc"]],"body_base64":"` + b64(goodUser) + `"}`
+	r := run(t, init0(),
+		// Status 418 is not defined for the operation: that is its own finding, and whether a body is
+		// declared is unknowable.
+		validate(2, post, respRaw(418, j, sp(`{"x":1}`)), `{"request":false}`),
+		// Unmatched operation.
+		validate(3, `{"method":"GET","url":"http://example.test/nope","headers":[],"body_base64":"`+b64(`x`)+`"}`, "", ""),
+		// Declared content: a body is expected.
+		validate(4, post, "", ""),
+	)
+	if c := codes(sideOf(result(t, r[1]), "response")); len(c) != 1 || c[0] != "response.status" {
+		t.Errorf("undeclared status: %v", c)
+	}
+	if findCode(diagsOf(result(t, r[2]), "request"), "body.undeclared") != nil {
+		t.Errorf("unmatched operation: %v", diagsOf(result(t, r[2]), "request"))
+	}
+	if len(diagsOf(result(t, r[3]), "request")) != 0 {
+		t.Errorf("declared body: %v", diagsOf(result(t, r[3]), "request"))
+	}
+}
+
+// A response with no body and no Content-Type has no media type to check, so the library's
+// "media type" finding is dropped. Anything else about the media type still counts.
+func TestBodilessResponseWithoutContentTypeIsValid(t *testing.T) {
+	req := `{"method":"GET","url":"http://example.test/users/7"}`
+	only := `{"request":false}`
+	j, tx := hdrs{{"Content-Type", "application/json"}}, hdrs{{"Content-Type", "text/plain"}}
+	r := run(t, init0(),
+		validate(2, req, respRaw(200, nil, nil), only),                       // nothing sent at all
+		validate(3, req, respRaw(200, nil, sp(``)), only),                    // empty body, still no Content-Type
+		validate(4, req, respRaw(200, nil, sp(`{"id":1,"name":"a"}`)), only), // body with no Content-Type: still a finding
+		validate(5, req, respRaw(200, tx, nil), only),                        // an undeclared Content-Type is still wrong
+		validate(6, req, respRaw(200, j, nil), only),                         // declared Content-Type, no body
+	)
+	for _, i := range []int{1, 2} {
+		if res := result(t, r[i]); res["valid"] != true || res["complete"] != true || len(diagsOf(res, "response")) != 0 {
+			t.Errorf("reply %d: bodiless, no Content-Type must be clean: %v", i+1, res)
+		}
+	}
+	withBody := result(t, r[3])
+	if withBody["valid"] == true || findCode(diagsOf(withBody, "response"), "body.media_type") == nil {
+		t.Errorf("a body with no Content-Type is still reported: %v", diagsOf(withBody, "response"))
+	}
+	if c := codes(sideOf(result(t, r[4]), "response")); len(c) != 1 || c[0] != "body.media_type" {
+		t.Errorf("an undeclared Content-Type is still reported: %v", c)
+	}
+	if res := result(t, r[5]); res["valid"] != true {
+		t.Errorf("declared Content-Type, no body: %v", res)
+	}
+}

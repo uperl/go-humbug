@@ -1,0 +1,39 @@
+{
+  "complete": true,
+  "has_violations": false,
+  "operation": {
+    "method": "POST",
+    "operation_id": "createContact",
+    "path": "/contacts"
+  },
+  "request": {
+    "complete": true,
+    "diagnostics": [],
+    "has_violations": false,
+    "status": "valid",
+    "valid": true
+  },
+  "response": {
+    "complete": true,
+    "diagnostics": [
+      {
+        "code": "body.undeclared",
+        "detail": {
+          "media_type": "application/json"
+        },
+        "id": "d1",
+        "instance": {
+          "location": "body"
+        },
+        "message": "a body was sent but the operation declares no content for it",
+        "severity": "warning",
+        "side": "response",
+        "suppressed_by": null
+      }
+    ],
+    "has_violations": false,
+    "status": "valid",
+    "valid": true
+  },
+  "valid": true
+}
