@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,12 +15,16 @@ import (
 
 	"github.com/pb33f/libopenapi"
 	validator "github.com/pb33f/libopenapi-validator"
+	"github.com/pb33f/libopenapi-validator/config"
 	"github.com/pb33f/libopenapi-validator/paths"
 	"github.com/pb33f/libopenapi/datamodel"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 
 	"humbug/internal/diagnostics"
 )
+
+// logger sends library diagnostics to stderr; stdout carries protocol traffic only.
+var logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 // SpecError is returned by Load when the specification cannot be used.
 type SpecError struct{ Err error }
@@ -53,6 +58,8 @@ func Load(path string) (*Engine, error) {
 		BasePath:              abs,
 		AllowFileReferences:   true,
 		AllowRemoteReferences: false,
+		// The library's default logger writes JSON to stdout, which is the protocol stream.
+		Logger: logger,
 	})
 	if err != nil {
 		return nil, &SpecError{err}
@@ -64,7 +71,7 @@ func Load(path string) (*Engine, error) {
 	if model == nil {
 		return nil, &SpecError{errors.New("could not build OpenAPI model")}
 	}
-	v, verrs := validator.NewValidator(doc)
+	v, verrs := validator.NewValidator(doc, config.WithLogger(logger))
 	if len(verrs) > 0 {
 		return nil, &SpecError{errors.Join(verrs...)}
 	}

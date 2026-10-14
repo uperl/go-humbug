@@ -30,6 +30,19 @@ header pairs, and the error/result split are as in the draft.
    `diagnostics` array. Only the first composition level is grouped. Anything unrecognized is
    `validation.unclassified` with `detail.validation_type/validation_sub_type`.
 
+## Process behavior
+
+- stdout carries protocol replies only. Library logging (pb33f logs reference errors) goes to
+  stderr, and `os.Stdout` is pointed at stderr inside the process so stray writes cannot corrupt
+  the stream. A clean run writes nothing to stderr.
+- EOF (including a final line with no newline) ends the process with exit status 0. `shutdown` is
+  acknowledged, then the process exits 0 and ignores any later input.
+- SIGTERM is not handled specially: the process is terminated by the signal at once, mid-command
+  if need be. Clients should treat a dead process as a failed transaction and restart it.
+- If the client stops reading stdout, the next failed write ends the process (non-zero exit).
+- Nothing is printed until a command arrives. Remote `$ref` fetching is disabled in the library
+  configuration (not separately tested).
+
 ## Behavior notes
 
 - Messages are generated from structure and never echo payload values.
