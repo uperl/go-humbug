@@ -22,8 +22,8 @@ header pairs, and the error/result split are as in the draft.
    ancestor is highlighted with `contextual: true`. Duplicate member names set `ambiguous: true`
    and report the last occurrence. Malformed JSON gives `body.decode` with a zero-width span
    (`part: "position"`) at the parser's error offset (`detail.parser` has the parser message).
-5. **Limits.** Command lines over 256 MiB get `protocol.line_too_long`. Header handling is
-   described under "Headers" below; there are no header count or size caps beyond the line limit.
+5. **Limits.** Resource limits bound what one command can cost; see "Limits" below (decided).
+   Header handling is described under "Headers".
 6. **Schema locations.** `schema.pointer` is relative to the root schema of the validated
    body (`relative: true`); `line`/`column` locate that root schema, from the library. The file
    name is not exposed by the library and is omitted.
@@ -31,6 +31,50 @@ header pairs, and the error/result split are as in the draft.
    diagnostic (`children`) plus branch diagnostics (`parent`, `branch`); all stay in the flat
    `diagnostics` array. Only the first composition level is grouped. Anything unrecognized is
    `validation.unclassified` with `detail.validation_type/validation_sub_type`.
+
+## Limits
+
+The memory a validation takes is a multiple of its input, not a constant. Measured with the pinned
+library on one machine: about 11 to 12 times the body size for a flat document (a 100 MB body peaked
+near 1.2 GB), and about 70 times for a structured one (a 19 MB array of small objects peaked at
+1.4 GB). The command-line limit alone is therefore not a memory bound, so each limit is checked
+before the work it guards.
+
+| Limit | Default | Flag | When exceeded |
+| --- | --- | --- | --- |
+| Command line | 64 MiB | `--max-line-bytes` | `protocol.line_too_long` (null id); the line is skipped and the stream stays usable |
+| Decoded body, per message | 16 MiB | `--max-body-bytes` | that side is `incomplete`, reason `body.too_large` |
+| JSON nesting depth | 1,000 | `--max-nesting-depth` (at most 10,000) | that side is `incomplete`, reason `body.too_deep` |
+| Header entries, per message | 1,000 | `--max-headers` | `validator.unsupported_input` |
+| One decoded header value | 64 KiB | `--max-header-value-bytes` | `validator.unsupported_input` |
+| All header names and values | 1 MiB | `--max-header-bytes` | `validator.unsupported_input` |
+
+- **An oversized body is not an error.** A body that is too large or too deep is never handed to
+  the library, and its side is `incomplete` (never valid) with a `validation.incomplete` diagnostic
+  whose `detail` gives the limit (and, for size, the measured size; never content). Findings the
+  library would have made about the body are dropped, since it never saw it; findings about
+  everything else (headers, parameters, status) are unaffected. The other side is validated
+  normally.
+- **Depth applies to JSON bodies only.** Brackets inside strings are not counted. The ceiling of
+  10,000 is the depth limit of Go's JSON decoder (and of the span index); it cannot be raised.
+- **Header limits are input errors,** like malformed headers, because a message with that many or
+  that large headers is not something to validate. The size is of the decoded value, so a
+  `base64` header is limited after decoding. A response's headers are judged only when the
+  response is being validated.
+- **Flags, not the wire.** The limits are set on the command line (`humbug --max-body-bytes N ...`),
+  never by a client. There is no "unlimited": each must be at least 1. A usage error exits with
+  status 2, explains itself on stderr, and writes nothing to stdout.
+- **`initialize` reports the limits in effect** as `limits` (`max_line_bytes`, `max_body_bytes`,
+  `max_nesting_depth`, `max_headers`, `max_header_value_bytes`, `max_header_bytes`), so a client can
+  adapt. The field is optional: another implementation may report a different set.
+- **Plan for memory.** At the defaults a message just under the body limit can peak around 1 GB
+  for a structured JSON body (an 11 MB array of small objects measured about 810 MiB), and a command
+  near the line limit costs several hundred MiB to receive. Lower `--max-body-bytes` to reduce
+  the worst case.
+- **There is no per-command timeout.** Validation time is linear in the input (the library's
+  regular expressions are RE2, which cannot backtrack catastrophically) and the limits bound the
+  input, so measured worst cases are seconds. A client should apply its own timeout, and treat a
+  process that dies (for example killed for memory) as a failed transaction and restart it.
 
 ## Supported OpenAPI versions
 
@@ -201,9 +245,8 @@ Humbug takes no action on them. A `gzip` header over a plain JSON body is valida
 spans refer to the supplied bytes. If a client sends still-compressed bytes, that is a client
 error: the bytes are reported as `body.decode` (malformed JSON) and nothing mentions gzip.
 
-Clients that capture compressed bodies must decode them first. There is no size limit on bodies
-beyond the command line limit (256 MiB, provisional); an 8 MiB JSON body is validated and mapped in
-well under a second.
+Clients that capture compressed bodies must decode them first. Body size is bounded by the limits
+described under "Limits".
 
 ## Known library limitations (pinned pb33f v0.16.1)
 

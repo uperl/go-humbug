@@ -37,8 +37,11 @@ diagnostics (`validation.incomplete`) explain why a side is `complete: false` an
 | `validation.incomplete` | A requested check could not run; `reason` says why (info) | varies |
 | `validation.unclassified` | The library reported something Humbug does not classify; original `validation_type`/`validation_sub_type` in `detail` | none |
 
-`validation.incomplete` reasons: `body.not_inspected` (a non-JSON body whose schema Humbug cannot
-check as a string, or a body with no usable Content-Type; `detail.media_type` has the type),
+`validation.incomplete` reasons: `body.too_large` (the decoded body exceeds the size limit;
+`detail.limit_bytes` and `detail.body_bytes`), `body.too_deep` (a JSON body exceeds the nesting limit;
+`detail.limit_depth`; see "Limits" in `protocol.md`), `body.not_inspected` (a non-JSON body whose
+schema Humbug cannot check as a string, or a body with no usable Content-Type; `detail.media_type`
+has the type),
 `body.charset_unsupported` (a text body declared in a charset other than UTF-8 or US-ASCII;
 `detail.charset`), `operation.not_found` and `operation.method_not_allowed` (response side could
 not be routed).

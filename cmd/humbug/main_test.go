@@ -51,9 +51,11 @@ type proc struct {
 	raw *bytes.Buffer
 }
 
-func start(t *testing.T) *proc {
+func start(t *testing.T) *proc { t.Helper(); return startWith(t) }
+
+func startWith(t *testing.T, args ...string) *proc {
 	t.Helper()
-	cmd := exec.Command(binary)
+	cmd := exec.Command(binary, args...)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		t.Fatal(err)
@@ -356,9 +358,24 @@ func validateBody(id int, body string) string {
 	return fmt.Sprintf(`{"id":%d,"type":"validate","params":{"request":{"method":"POST","url":"http://example.test/users","headers":[["Content-Type","application/json"],["X-Request-Id","abc"]],"body_base64":"%s"}}}`, id, base64Std(body))
 }
 
+func resultOf(r map[string]any) map[string]any { return r["result"].(map[string]any) }
+
+func sideOf(r map[string]any, side string) map[string]any { return resultOf(r)[side].(map[string]any) }
+
+func reasons(side map[string]any) []string {
+	var out []string
+	for _, d := range side["diagnostics"].([]any) {
+		if r, ok := d.(map[string]any)["reason"].(string); ok {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
 // A body of nested brackets must neither exhaust memory nor kill the process. The source-map
 // parser once cost memory proportional to the square of the nesting depth: 100 KB took 3 GB and
-// 1 MB got the process killed by the OS without a reply.
+// 1 MB got the process killed by the OS without a reply. Such a body is now refused before any
+// parsing: its side is incomplete (body.too_deep).
 func TestDeeplyNestedBodyGetsAReplyAndTheProcessSurvives(t *testing.T) {
 	p := start(t)
 	p.call(initCmd)
@@ -371,42 +388,113 @@ func TestDeeplyNestedBodyGetsAReplyAndTheProcessSurvives(t *testing.T) {
 	if d := time.Since(begin); d > 10*time.Second {
 		t.Errorf("a nested body took %v to answer", d)
 	}
-	res := r["result"].(map[string]any)["request"].(map[string]any)
-	if res["status"] != "invalid" {
-		t.Errorf("request: %v", res)
+	side := sideOf(r, "request")
+	if side["status"] != "incomplete" || len(reasons(side)) != 1 || reasons(side)[0] != "body.too_deep" {
+		t.Errorf("request: %v", side)
 	}
-	found := false
-	for _, d := range res["diagnostics"].([]any) {
-		if d.(map[string]any)["code"] == "body.decode" {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("expected body.decode for the malformed body: %v", res["diagnostics"])
+	if resultOf(r)["valid"] == true {
+		t.Errorf("an uninspected body must never be valid")
 	}
 
 	// Still alive and correct afterwards.
-	if r := p.call(validateCmd(3, "valid")); r["type"] != "result" || r["result"].(map[string]any)["valid"] != true {
+	if r := p.call(validateCmd(3, "valid")); r["type"] != "result" || resultOf(r)["valid"] != true {
 		t.Errorf("after the nested body: %v", r)
 	}
 }
 
-// A valid document nested close to the limit keeps its spans: the index must still be built and used.
+// The depth limit is configurable up to what the toolchain supports; within it, a deep document
+// keeps its spans (the index must still be built and used).
 func TestDeepButValidBodyKeepsItsSpans(t *testing.T) {
 	const depth = 9000
 	body := strings.Repeat("[", depth) + strings.Repeat("]", depth)
-	p := start(t)
+	p := startWith(t, "--max-nesting-depth", "10000")
 	p.call(initCmd)
-	r := p.call(validateBody(2, body))
-	res := r["result"].(map[string]any)["request"].(map[string]any)
+	side := sideOf(p.call(validateBody(2, body)), "request")
 	var span map[string]any
-	for _, d := range res["diagnostics"].([]any) {
+	for _, d := range side["diagnostics"].([]any) {
 		if dd := d.(map[string]any); dd["code"] == "schema.type" {
 			span, _ = dd["instance"].(map[string]any)["span"].(map[string]any)
 		}
 	}
 	// The root is an array where /users expects an object: the finding spans the whole document.
 	if span == nil || span["part"] != "value" || span["start"] != float64(0) || span["end"] != float64(2*depth) {
-		t.Errorf("root span: %v (diagnostics %v)", span, res["diagnostics"])
+		t.Errorf("root span: %v (diagnostics %v)", span, side["diagnostics"])
+	}
+}
+
+// ---- command-line flags set the limits ----
+
+func TestFlagsSetTheLimitsAndInitializeReportsThem(t *testing.T) {
+	p := startWith(t, "--max-body-bytes", "50", "--max-headers=7", "--max-nesting-depth", "12")
+	r := p.call(initCmd)
+	lim, _ := resultOf(r)["limits"].(map[string]any)
+	if lim["max_body_bytes"] != float64(50) || lim["max_headers"] != float64(7) || lim["max_nesting_depth"] != float64(12) {
+		t.Fatalf("initialize must report the effective limits: %v", lim)
+	}
+	if lim["max_line_bytes"] != float64(64<<20) || lim["max_header_bytes"] != float64(1<<20) || lim["max_header_value_bytes"] != float64(64<<10) {
+		t.Errorf("unset limits keep their defaults: %v", lim)
+	}
+	// And they are enforced: a 51-byte body is not inspected.
+	side := sideOf(p.call(validateBody(2, strings.Repeat("x", 51))), "request")
+	if side["status"] != "incomplete" || len(reasons(side)) != 1 || reasons(side)[0] != "body.too_large" {
+		t.Errorf("request: %v", side)
+	}
+	// A body of exactly the limit is inspected (it is malformed JSON, so a finding).
+	side = sideOf(p.call(validateBody(3, strings.Repeat("x", 50))), "request")
+	if side["status"] != "invalid" {
+		t.Errorf("a body at the limit is inspected: %v", side)
+	}
+}
+
+func TestDefaultLimitsAreReported(t *testing.T) {
+	p := start(t)
+	lim := resultOf(p.call(initCmd))["limits"].(map[string]any)
+	want := map[string]float64{"max_line_bytes": 64 << 20, "max_body_bytes": 16 << 20, "max_nesting_depth": 1000,
+		"max_headers": 1000, "max_header_value_bytes": 64 << 10, "max_header_bytes": 1 << 20}
+	for k, v := range want {
+		if lim[k] != v {
+			t.Errorf("%s = %v, want %v", k, lim[k], v)
+		}
+	}
+}
+
+// A usage error exits with status 2, explains itself on stderr, and writes nothing to stdout.
+func TestBadFlagsAreUsageErrors(t *testing.T) {
+	for name, args := range map[string][]string{
+		"unknown flag":        {"--frobnicate"},
+		"not a number":        {"--max-body-bytes", "lots"},
+		"zero":                {"--max-headers", "0"},
+		"negative":            {"--max-body-bytes", "-5"},
+		"depth over ceiling":  {"--max-nesting-depth", "10001"},
+		"positional argument": {"spec.yaml"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			cmd := exec.Command(binary, args...)
+			cmd.Stdout, cmd.Stderr = &stdout, &stderr
+			err := cmd.Run()
+			var ee *exec.ExitError
+			if !errors.As(err, &ee) || ee.ExitCode() != 2 {
+				t.Errorf("exit: %v", err)
+			}
+			if stdout.Len() != 0 {
+				t.Errorf("stdout must stay empty: %q", stdout.String())
+			}
+			if stderr.Len() == 0 {
+				t.Errorf("a usage error must be explained on stderr")
+			}
+		})
+	}
+}
+
+func TestHelpExitsCleanlyOnStderr(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	cmd := exec.Command(binary, "--help")
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	if err := cmd.Run(); err != nil {
+		t.Errorf("--help: %v", err)
+	}
+	if stdout.Len() != 0 || !strings.Contains(stderr.String(), "max-body-bytes") {
+		t.Errorf("usage belongs on stderr and must list the flags: stdout=%q stderr=%q", stdout.String(), stderr.String())
 	}
 }

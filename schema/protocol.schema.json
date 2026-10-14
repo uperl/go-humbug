@@ -126,6 +126,11 @@
       "additionalProperties": false,
       "properties": {
         "protocol_version": {"const": 1},
+        "limits": {
+          "type": "object",
+          "description": "The resource limits in effect (an implementation may report its own set). See docs/protocol.md.",
+          "additionalProperties": {"type": "integer", "minimum": 1}
+        },
         "specification": {
           "type": "object",
           "required": ["openapi_version", "title"],

@@ -34,6 +34,7 @@ type normalizer struct {
 	incomplet bool
 	noSpans   bool                  // body is not JSON: findings carry no pointer or span
 	sentCT    bool                  // the message carried a Content-Type header
+	skipped   *bodySkip             // the body exceeded a limit and was not handed to the library
 	decls     map[string]headerDecl // declared headers by lower-cased name
 }
 
@@ -71,6 +72,7 @@ func (n *normalizer) result(errs []*verrors.ValidationError) *d.Side {
 	for _, e := range errs {
 		n.one(e)
 	}
+	n.applySkip()
 	s := &d.Side{Diagnostics: n.diags}
 	if s.Diagnostics == nil {
 		s.Diagnostics = []d.Diagnostic{}
@@ -130,7 +132,7 @@ func (n *normalizer) one(e *verrors.ValidationError) {
 	case typ == "response" && sub == "contentType":
 		// A response with no body and no Content-Type has no media type to check; the library
 		// reports one anyway. Nothing is wrong, so the finding is dropped.
-		if !n.sentCT && len(n.body) == 0 {
+		if !n.sentCT && len(n.body) == 0 && n.skipped == nil {
 			return
 		}
 		n.add(d.Diagnostic{Code: d.CodeBodyMediaType, Instance: &d.Instance{Location: "header", Name: "Content-Type"},
@@ -484,6 +486,27 @@ func (n *normalizer) incomplete(reason string, detail map[string]string, msg str
 	n.incomplet = true
 	n.add(d.Diagnostic{Code: d.CodeIncomplete, Severity: d.SeverityInfo, Reason: reason,
 		Instance: &d.Instance{Location: "body"}, Detail: detail, Message: msg})
+}
+
+// applySkip handles a body that exceeded a limit. The library never saw it, so any finding it
+// reported about the body (a "required body is missing", say) is meaningless and is dropped; the
+// side is incomplete instead, never valid.
+func (n *normalizer) applySkip() {
+	if n.skipped == nil {
+		return
+	}
+	kept := n.diags[:0]
+	for _, x := range n.diags {
+		if x.Instance == nil || x.Instance.Location != "body" {
+			kept = append(kept, x)
+		}
+	}
+	n.diags = kept
+	msg := "body was not inspected: it exceeds the size limit"
+	if n.skipped.reason == "body.too_deep" {
+		msg = "body was not inspected: its JSON nesting exceeds the depth limit"
+	}
+	n.incomplete(n.skipped.reason, n.skipped.detail, msg)
 }
 
 func isJSON(contentType string) bool {

@@ -24,6 +24,7 @@ import (
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 
 	"humbug/internal/diagnostics"
+	"humbug/internal/limits"
 )
 
 // logger sends library diagnostics to stderr; stdout carries protocol traffic only.
@@ -71,12 +72,16 @@ type Engine struct {
 	sv    schema_validation.SchemaValidator
 	rt    router.Router // routes exactly as the validator does; see newRouter
 	model *v3.Document
+	lim   limits.Limits
 	Info  SpecInfo
 }
 
 // Load reads and fully resolves the spec at path. Local file references are
 // resolved relative to the spec's directory; remote references are not fetched.
-func Load(path string) (*Engine, error) {
+func Load(path string) (*Engine, error) { return LoadWithLimits(path, limits.Default()) }
+
+// LoadWithLimits is Load with an explicit resource policy (see package limits).
+func LoadWithLimits(path string, lim limits.Limits) (*Engine, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, &SpecError{err}
@@ -109,7 +114,7 @@ func Load(path string) (*Engine, error) {
 	if len(verrs) > 0 {
 		return nil, &SpecError{errors.Join(verrs...)}
 	}
-	e := &Engine{v: v, sv: schema_validation.NewSchemaValidatorWithLogger(logger), rt: newRouter(&model.Model), model: &model.Model}
+	e := &Engine{v: v, sv: schema_validation.NewSchemaValidatorWithLogger(logger), rt: newRouter(&model.Model), model: &model.Model, lim: lim}
 	e.Info.OpenAPIVersion = doc.GetSpecInfo().Version
 	if model.Model.Info != nil {
 		e.Info.Title = model.Model.Info.Title
@@ -183,18 +188,28 @@ func (e *InputError) Unwrap() error { return e.Err }
 func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 	res := &diagnostics.Result{Request: diagnostics.Skipped(), Response: diagnostics.Skipped()}
 
-	if err := checkHeaders("request", p.Request.Headers); err != nil {
+	if err := e.checkHeaders("request", p.Request.Headers); err != nil {
 		return nil, err
 	}
 	if p.ValidateResponse && p.Response != nil {
-		if err := checkHeaders("response", p.Response.Headers); err != nil {
+		if err := e.checkHeaders("response", p.Response.Headers); err != nil {
 			return nil, err
 		}
 	}
 
-	// Bodies are the already-decoded HTTP bodies. Content-Encoding headers are preserved and
-	// passed through but never acted on: Humbug does not decompress anything.
-	req, err := p.Request.http()
+	// A body over a limit is never handed to the library: its side is reported incomplete instead
+	// (see bodyLimit). Bodies are the already-decoded HTTP bodies; Content-Encoding headers are
+	// preserved and passed through but never acted on, since Humbug does not decompress anything.
+	reqSkip := e.bodyLimit(p.Request.Body, p.Request.Headers)
+	var resSkip *bodySkip
+	if p.ValidateResponse && p.Response != nil {
+		resSkip = e.bodyLimit(p.Response.Body, p.Response.Headers)
+	}
+
+	// Routing, and response validation, need only the request line and headers, never its body.
+	routeMsg := p.Request
+	routeMsg.Body = nil
+	req, err := routeMsg.http()
 	if err != nil {
 		return nil, &InputError{err}
 	}
@@ -210,31 +225,45 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 	}
 
 	if p.ValidateRequest {
-		_, errs := e.v.ValidateHttpRequest(req)
-		n := newNormalizer(diagnostics.SideRequest, bodyBytes(p.Request.Body), p.Request.Body != nil, e.model)
+		msg := p.Request
+		if reqSkip != nil {
+			msg.Body = nil
+		}
+		vreq, err := msg.http()
+		if err != nil {
+			return nil, &InputError{err}
+		}
+		_, errs := e.v.ValidateHttpRequest(vreq)
+		n := newNormalizer(diagnostics.SideRequest, bodyBytes(msg.Body), msg.Body != nil, e.model)
+		n.skipped = reqSkip
 		if op != nil {
 			n.decls = requestHeaderDecls(pi, op)
 			errs = e.emptyHeaderParams(n, p.Request.Headers, errs)
 			n.warnRepeated(p.Request.Headers)
 		}
 		_, n.sentCT = firstLine(p.Request.Headers, "content-type")
-		e.warnUndeclaredBody(n, op, 0, p.Request.Headers, bodyBytes(p.Request.Body))
-		e.inspectNonJSON(n, op, 0, p.Request.Headers, bodyBytes(p.Request.Body))
+		e.warnUndeclaredBody(n, op, 0, p.Request.Headers, bodyBytes(msg.Body))
+		e.inspectNonJSON(n, op, 0, p.Request.Headers, bodyBytes(msg.Body))
 		res.Request = n.result(errs)
 	}
 
 	if p.ValidateResponse && p.Response != nil {
-		req2, _ := p.Request.http() // fresh request: validators may consume the body
-		resp := p.Response.http(req2)
+		msg := *p.Response
+		if resSkip != nil {
+			msg.Body = nil
+		}
+		req2, _ := routeMsg.http() // a fresh request: validators may consume it
+		resp := msg.http(req2)
 		_, errs := e.v.ValidateHttpResponse(req2, resp)
-		n := newNormalizer(diagnostics.SideResponse, bodyBytes(p.Response.Body), p.Response.Body != nil, e.model)
+		n := newNormalizer(diagnostics.SideResponse, bodyBytes(msg.Body), msg.Body != nil, e.model)
+		n.skipped = resSkip
 		if op != nil {
 			n.decls = responseHeaderDecls(op, p.Response.Status)
 			n.warnRepeated(p.Response.Headers)
 		}
 		_, n.sentCT = firstLine(p.Response.Headers, "content-type")
-		e.warnUndeclaredBody(n, op, p.Response.Status, p.Response.Headers, bodyBytes(p.Response.Body))
-		e.inspectNonJSON(n, op, p.Response.Status, p.Response.Headers, bodyBytes(p.Response.Body))
+		e.warnUndeclaredBody(n, op, p.Response.Status, p.Response.Headers, bodyBytes(msg.Body))
+		e.inspectNonJSON(n, op, p.Response.Status, p.Response.Headers, bodyBytes(msg.Body))
 		res.Response = n.result(errs)
 	}
 

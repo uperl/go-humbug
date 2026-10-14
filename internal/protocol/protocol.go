@@ -15,13 +15,11 @@ import (
 	"strings"
 
 	"humbug/internal/diagnostics"
+	"humbug/internal/limits"
 	"humbug/internal/validation"
 )
 
 const Version = 1
-
-// MaxLineBytes bounds one command line (provisional default; see docs/protocol.md).
-const MaxLineBytes = 256 << 20
 
 // Error codes.
 const (
@@ -44,13 +42,20 @@ type Validator interface {
 	Validate(validation.Params) (*diagnostics.Result, error)
 }
 
-// EngineLoader is the production Loader.
-func EngineLoader(path string) (Validator, validation.SpecInfo, error) {
-	e, err := validation.Load(path)
-	if err != nil {
-		return nil, validation.SpecInfo{}, err
+// NewEngineLoader returns the production Loader, enforcing lim.
+func NewEngineLoader(lim limits.Limits) Loader {
+	return func(path string) (Validator, validation.SpecInfo, error) {
+		e, err := validation.LoadWithLimits(path, lim)
+		if err != nil {
+			return nil, validation.SpecInfo{}, err
+		}
+		return e, e.Info, nil
 	}
-	return e, e.Info, nil
+}
+
+// EngineLoader is the production Loader with the default limits.
+func EngineLoader(path string) (Validator, validation.SpecInfo, error) {
+	return NewEngineLoader(limits.Default())(path)
 }
 
 type command struct {
@@ -73,7 +78,17 @@ type Error struct {
 
 type Server struct {
 	Load Loader
-	v    Validator
+	// Limits bounds the command line (the engine enforces the rest) and is reported by
+	// initialize. The zero value means the defaults.
+	Limits limits.Limits
+	v      Validator
+}
+
+func (s *Server) limits() limits.Limits {
+	if s.Limits == (limits.Limits{}) {
+		return limits.Default()
+	}
+	return s.Limits
 }
 
 var intID = regexp.MustCompile(`^-?(0|[1-9][0-9]*)$`)
@@ -93,7 +108,7 @@ func (s *Server) Serve(r io.Reader, w io.Writer) error {
 		return bw.Flush()
 	}
 	for {
-		line, tooLong, err := readLine(br)
+		line, tooLong, err := readLine(br, s.limits().MaxLineBytes)
 		if err != nil && len(line) == 0 && !tooLong {
 			if err == io.EOF {
 				return nil
@@ -117,15 +132,15 @@ func (s *Server) Serve(r io.Reader, w io.Writer) error {
 }
 
 // readLine returns one line without its terminator. When the line exceeds
-// MaxLineBytes the remainder is drained and tooLong is true.
-func readLine(br *bufio.Reader) (line []byte, tooLong bool, err error) {
+// max bytes the remainder is drained and tooLong is true.
+func readLine(br *bufio.Reader, max int) (line []byte, tooLong bool, err error) {
 	for {
 		chunk, isPrefix, e := br.ReadLine()
 		if e != nil {
 			return line, tooLong, e
 		}
 		if !tooLong {
-			if len(line)+len(chunk) > MaxLineBytes {
+			if len(line)+len(chunk) > max {
 				tooLong, line = true, nil
 			} else {
 				line = append(line, chunk...)
@@ -230,6 +245,7 @@ func (s *Server) initialize(id json.RawMessage, raw json.RawMessage) reply {
 	return reply{ID: id, Type: "result", Result: map[string]any{
 		"protocol_version": Version,
 		"specification":    map[string]string{"openapi_version": info.OpenAPIVersion, "title": info.Title},
+		"limits":           s.limits(),
 	}}
 }
 

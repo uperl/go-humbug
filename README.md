@@ -22,6 +22,12 @@ and 1.27.2. The pb33f dependencies are pinned in `go.mod`: `libopenapi` v0.41.6 
 `humbug` speaks NDJSON on stdin/stdout (one command per line, one reply per command); stderr
 is for process diagnostics only. See `docs/protocol.md` for the protocol as implemented.
 
+    humbug [flags]   # --max-line-bytes, --max-body-bytes, --max-nesting-depth, --max-headers,
+                     # --max-header-value-bytes, --max-header-bytes (see `humbug --help`)
+
+The flags set resource limits (defaults: 64 MiB line, 16 MiB body, depth 1000, 1000 headers); see
+"Limits" in `docs/protocol.md`. `initialize` reports the limits in effect.
+
 Supports the **OpenAPI 3.1** line, 3.1.0 and its patch releases (other versions are rejected at
 `initialize`; see `docs/protocol.md`).
 
@@ -32,6 +38,7 @@ Supports the **OpenAPI 3.1** line, 3.1.0 and its patch releases (other versions 
     internal/validation/  pb33f wrapper and normalizer (pb33f types stay here)
     internal/diagnostics/ wire result/diagnostic types, ordering, ID assignment
     internal/sourcemap/   JSON pointer -> byte span / line / column index
+    internal/limits/      resource limits (defaults, validation, command-line flags)
     schema/               protocol and diagnostic JSON Schemas
     testdata/             specs, cases, golden outputs
     examples/python/      stdlib-only example client
