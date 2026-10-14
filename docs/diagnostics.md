@@ -133,7 +133,8 @@ name found, never the value). They are omitted when several type constraints app
   highlight is the offending name. When the rejected names cannot be attributed with certainty
   (inside `oneOf`/`anyOf`, or two closed schemas applying to one object), Humbug does not guess:
   it reports one finding per constraint for the object.
-- The value's own span is not reported. A consumer that wants it can parse the body at `pointer`.
+- The value's own span is not reported (decided: no `value_span`). A consumer that wants it can
+  parse the body at `pointer`.
 - Header, query, cookie and path diagnostics identify the parameter by `location` and `name` only;
   no wire positions are invented.
 - `schema.pointer` is relative to the root schema of the validated body. `schema.line`/`column`

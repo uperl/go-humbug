@@ -94,11 +94,13 @@ was routed and validated). That differs from the expectations above in these way
   `/users//` are routed to `/users` and validated against it, and the result reports operation
   `/users`. This is a leniency of the underlying library, not intended behavior: OpenAPI treats
   these as different paths, and another implementation should report `operation.not_found` for
-  them. Do not rely on it. Humbug may become strict; the tests that pin the current behavior
+  them. Do not rely on it. Decided: documenting this is enough for now, and Humbug does not
+  enforce strict slashes. The tests that pin the current behavior
   (`TestOperationIsReportedForEveryRoutedPath`, and the slash cases in
-  `TestRoutingMatchesTheValidator`) would then change.
+  `TestRoutingMatchesTheValidator`) would change if that is revisited.
 - **Host, scheme and port are not checked.** `servers` is not used to reject a request sent to a
-  different host. (The library has a strict server-matching option; it is off.)
+  different host. The library's strict server-matching mode is deliberately not used (decided);
+  it may be offered as an opt-in option later.
 - **A server base path is optional.** With `servers: [https://api.example.test/v1]`, both
   `/v1/users` and `/users` match `/users`.
 - **Case matters** (as expected): `/Users` is `operation.not_found`.
