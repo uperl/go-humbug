@@ -253,29 +253,36 @@ func TestInvalidRequestDoesNotSuppressResponse(t *testing.T) {
 	}
 }
 
-// TestGolden runs every fixture, asserts determinism over repeated runs, and
-// compares to the snapshot in testdata/golden (rewrite with: go test ./internal/protocol -update).
-func TestGolden(t *testing.T) {
+// fixture is one entry of testdata/cases/cases.json.
+type fixture struct {
+	ID  string `json:"id"`
+	Req struct {
+		Method, URL string
+		Headers     map[string]string
+		Body        *string
+	}
+	Res *struct {
+		Status  int
+		Headers map[string]string
+		Body    *string
+	}
+}
+
+func loadFixtures(t *testing.T) []fixture {
+	t.Helper()
 	raw, err := os.ReadFile(casesPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var cases []struct {
-		ID  string `json:"id"`
-		Req struct {
-			Method, URL string
-			Headers     map[string]string
-			Body        *string
-		}
-		Res *struct {
-			Status  int
-			Headers map[string]string
-			Body    *string
-		}
-	}
+	var cases []fixture
 	if err := json.Unmarshal(raw, &cases); err != nil {
 		t.Fatal(err)
 	}
+	return cases
+}
+
+// messages returns the request and response (possibly "") as wire messages.
+func (c fixture) messages() (req, res string) {
 	hdrs := func(m map[string]string) string {
 		var parts []string
 		for k, v := range m { // single-entry order irrelevant for these fixtures' semantics
@@ -291,15 +298,21 @@ func TestGolden(t *testing.T) {
 		}
 		return `,"body_base64":"` + b64(*b) + `"`
 	}
+	req = `{"method":"` + c.Req.Method + `","url":"http://example.test` + c.Req.URL + `","headers":` + hdrs(c.Req.Headers) + body(c.Req.Body) + `}`
+	if c.Res != nil {
+		res = `{"status":` + itoa(c.Res.Status) + `,"headers":` + hdrs(c.Res.Headers) + body(c.Res.Body) + `}`
+	}
+	return req, res
+}
+
+// TestGolden runs every fixture, asserts determinism over repeated runs, and
+// compares to the snapshot in testdata/golden (rewrite with: go test ./internal/protocol -update).
+func TestGolden(t *testing.T) {
+	cases := loadFixtures(t)
 	os.MkdirAll(goldenDir, 0o755)
 	for _, c := range cases {
 		t.Run(c.ID, func(t *testing.T) {
-			req := `{"method":"` + c.Req.Method + `","url":"http://example.test` + c.Req.URL + `","headers":` + hdrs(c.Req.Headers) + body(c.Req.Body) + `}`
-			res := ""
-			if c.Res != nil {
-				res = `{"status":` + string(rune('0'+c.Res.Status/100)) + `00,"headers":` + hdrs(c.Res.Headers) + body(c.Res.Body) + `}`
-				res = strings.Replace(res, string(rune('0'+c.Res.Status/100))+`00`, itoa(c.Res.Status), 1)
-			}
+			req, res := c.messages()
 			var first []byte
 			for i := 0; i < 5; i++ {
 				r := run(t, init0(), validate(2, req, res, ""))[1]

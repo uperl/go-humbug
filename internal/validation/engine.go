@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/pb33f/libopenapi"
@@ -28,11 +29,17 @@ import (
 // logger sends library diagnostics to stderr; stdout carries protocol traffic only.
 var logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-// SupportedVersions lists the OpenAPI versions Humbug supports and tests. Documents declaring any
-// other version are rejected at load: validating them under 3.1 semantics would silently
-// misreport (3.0 differs in nullable, exclusiveMinimum and more). Extend this list only together
-// with fixtures for the new version.
-var SupportedVersions = []string{"3.1.0"}
+// SupportedVersions describes the OpenAPI versions Humbug supports: the 3.1 line (3.1.0, 3.1.1,
+// 3.1.2, ...). Fixtures are written against 3.1.0, and a test runs every one of them against
+// patch-release copies of the specification to show the results are identical. Documents
+// declaring any other version are rejected at load: validating them under 3.1 semantics would
+// silently misreport (3.0 differs in nullable, exclusiveMinimum and more). Extend this only
+// together with fixtures for the new version.
+var SupportedVersions = []string{"3.1.x"}
+
+// supportedVersionPattern matches 3.1.<patch>. Pre-release suffixes (3.1.0-rc1) and versions
+// without a patch number (3.1) are not OpenAPI release versions and do not match.
+var supportedVersionPattern = regexp.MustCompile(`^3\.1\.(0|[1-9][0-9]*)$`)
 
 // UnsupportedVersionError is returned by Load for a document whose `openapi` version is not in
 // SupportedVersions.
@@ -46,14 +53,7 @@ func (e *UnsupportedVersionError) Error() string {
 	return fmt.Sprintf("OpenAPI version %q is not supported (supported: %s)", v, strings.Join(SupportedVersions, ", "))
 }
 
-func versionSupported(v string) bool {
-	for _, s := range SupportedVersions {
-		if v == s {
-			return true
-		}
-	}
-	return false
-}
+func versionSupported(v string) bool { return supportedVersionPattern.MatchString(v) }
 
 // SpecError is returned by Load when the specification cannot be used.
 type SpecError struct{ Err error }

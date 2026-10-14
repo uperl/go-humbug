@@ -1,6 +1,8 @@
 package protocol
 
 import (
+	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,25 +24,83 @@ func initPath(id int, path string) string {
 	return `{"id":` + itoa(id) + `,"type":"initialize","params":{"protocol_version":1,"spec":{"path":"` + path + `"}}}`
 }
 
-// OpenAPI 3.1.0 is the supported version. Any other is rejected at initialize with a specific
-// error, because validating it under 3.1 semantics would silently misreport.
-func TestOnly310IsSupported(t *testing.T) {
-	ok := run(t, initPath(1, specWith(t, "openapi: 3.1.0\n")))
-	if res := result(t, ok[0]); res["specification"].(obj)["openapi_version"] != "3.1.0" {
-		t.Errorf("3.1.0: %v", res)
+// The 3.1 line is supported (3.1.0, 3.1.1, 3.1.2, ...). Any other version is rejected at
+// initialize with a specific error, because validating it under 3.1 semantics would silently
+// misreport.
+func TestOnly31xIsSupported(t *testing.T) {
+	for _, v := range []string{"3.1.0", "3.1.1", "3.1.2", "3.1.10"} {
+		r := run(t, initPath(1, specWith(t, "openapi: "+v+"\n")))
+		if res := result(t, r[0]); res["specification"].(obj)["openapi_version"] != v {
+			t.Errorf("%s must be accepted: %v", v, res)
+		}
 	}
 	for _, header := range []string{
-		"openapi: 3.0.3\n", "openapi: 3.0.0\n", "openapi: 3.1.1\n", "openapi: 3.1.2\n", "openapi: 3.2.0\n",
-		"openapi: 4.0.0\n", "openapi: '3.1'\n", "openapi: 3.10.0\n", "openapi: 3.1.0-rc1\n",
+		"openapi: 3.0.3\n", "openapi: 3.0.0\n", "openapi: 3.2.0\n", "openapi: 4.0.0\n",
+		"openapi: '3.1'\n", "openapi: 3.10.0\n", "openapi: 3.1.0-rc1\n", "openapi: 3.1.01\n", "openapi: '3.1.x'\n",
+		"openapi: '3.1.'\n", "openapi: '3.1.1.1'\n",
 	} {
 		r := run(t, initPath(1, specWith(t, header)))
 		if code := errCode(t, r[0]); code != ErrSpecUnsupportedVer {
 			t.Errorf("%s: code %s", strings.TrimSpace(header), code)
 		}
 		msg := r[0]["error"].(obj)["message"].(string)
-		if !strings.Contains(msg, "3.1.0") || !strings.Contains(msg, "not supported") {
+		if !strings.Contains(msg, "3.1.x") || !strings.Contains(msg, "not supported") {
 			t.Errorf("%s: the message must say what is supported: %q", strings.TrimSpace(header), msg)
 		}
+	}
+}
+
+// Patch releases are accepted on the strength of this test: every fixture is run against copies
+// of the specification that declare each patch version, and the results must be identical to the
+// 3.1.0 snapshots (testdata/golden). If a patch release ever behaves differently, this fails.
+func TestPatchReleasesBehaveLikeThe310Snapshots(t *testing.T) {
+	cases := loadFixtures(t)
+	for _, version := range []string{"3.1.1", "3.1.2"} {
+		t.Run(version, func(t *testing.T) {
+			dir := t.TempDir()
+			entries, err := os.ReadDir("../../testdata/specs")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, e := range entries {
+				data, err := os.ReadFile(filepath.Join("../../testdata/specs", e.Name()))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if e.Name() == "users.yaml" {
+					if !bytes.Contains(data, []byte("openapi: 3.1.0")) {
+						t.Fatal("fixture spec does not declare 3.1.0")
+					}
+					data = bytes.Replace(data, []byte("openapi: 3.1.0"), []byte("openapi: "+version), 1)
+				}
+				if err := os.WriteFile(filepath.Join(dir, e.Name()), data, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			lines := []string{initPath(1, filepath.Join(dir, "users.yaml"))}
+			for i, c := range cases {
+				req, res := c.messages()
+				p := `"request":` + req
+				if res != "" {
+					p += `,"response":` + res
+				}
+				lines = append(lines, `{"id":`+itoa(i+2)+`,"type":"validate","params":{`+p+`}}`)
+			}
+			replies := run(t, lines...)
+			if v := result(t, replies[0])["specification"].(obj)["openapi_version"]; v != version {
+				t.Fatalf("version %v", v)
+			}
+			for i, c := range cases {
+				got, _ := json.MarshalIndent(result(t, replies[i+1]), "", "  ")
+				want, err := os.ReadFile(filepath.Join(goldenDir, c.ID+".json"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !bytes.Equal(bytes.TrimSpace(want), got) {
+					t.Errorf("%s under %s differs from the 3.1.0 snapshot", c.ID, version)
+				}
+			}
+		})
 	}
 }
 

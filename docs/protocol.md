@@ -34,19 +34,22 @@ header pairs, and the error/result split are as in the draft.
 
 ## Supported OpenAPI versions
 
-**OpenAPI 3.1.0 is the supported version.** It is the version the first target application uses,
-and the only one with fixtures. Other versions can be added later if needed.
+**The OpenAPI 3.1 line is supported: 3.1.0, 3.1.1, 3.1.2 and later 3.1 patch releases.** 3.1.0 is
+the version the first target application uses and the version the fixtures declare. Patch
+releases are accepted on evidence: `TestPatchReleasesBehaveLikeThe310Snapshots` runs every fixture
+against copies of the specification declaring 3.1.1 and 3.1.2, and the results must equal the
+3.1.0 snapshots. Other versions can be added later if needed.
 
 `initialize` rejects any other declared `openapi` version with `spec.unsupported_version`, naming
 the supported versions, and leaves the process uninitialized (the client may retry with another
-specification). This includes 3.0.x, 3.1.1 and later 3.1 patch releases, 3.2.x, and Swagger 2.0.
-The pinned library will load several of them, and an earlier build did, but they differ from 3.1.0
-(for example `nullable` and boolean `exclusiveMinimum` in 3.0), so validating them under the same
-assumptions would silently misreport. A document with no version, or one the library cannot read,
-is `spec.invalid`.
+specification). This includes 3.0.x, 3.2.x, 4.x, and Swagger 2.0, and also strings that are not
+release versions (`3.1` with no patch number, `3.1.0-rc1`, `3.1.01`). The pinned library will load
+several of those, and an earlier build did, but they differ from 3.1 (for example `nullable` and
+boolean `exclusiveMinimum` in 3.0), so validating them under the same assumptions would silently
+misreport. A document with no version, or one the library cannot read, is `spec.invalid`.
 
 The version a specification declares is returned by `initialize` as
-`specification.openapi_version`. The supported list is `validation.SupportedVersions`; extend it
+`specification.openapi_version`. The supported family is `validation.SupportedVersions`; extend it
 only together with fixtures for the new version.
 
 ## Process behavior
@@ -228,4 +231,5 @@ well under a second.
 - Array and object header parameters sent empty are left to the library, which treats empty as absent.
 - `Set-Cookie` response headers are validated per line by the library; Humbug does not parse cookie
   attributes.
-- Only OpenAPI 3.1.0 is supported or tested (see "Supported OpenAPI versions").
+- Only the OpenAPI 3.1 line is supported (see "Supported OpenAPI versions"); fixtures are written
+  against 3.1.0.
