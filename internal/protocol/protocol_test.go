@@ -380,3 +380,35 @@ func TestCookieAndArrayQueryParameters(t *testing.T) {
 		t.Errorf("bad array item: %v", c)
 	}
 }
+
+// A line holds exactly one JSON object. A line with more than one is rejected as a whole: none of
+// its commands run, even the first, and the stream stays usable.
+func TestOneJSONObjectPerLine(t *testing.T) {
+	for name, line := range map[string]string{
+		"two objects, no separator":  `{"id":1,"type":"shutdown"}{"id":2,"type":"shutdown"}`,
+		"two objects, one space":     `{"id":1,"type":"shutdown"} {"id":2,"type":"shutdown"}`,
+		"object then garbage":        `{"id":1,"type":"shutdown"}x`,
+		"object then partial object": `{"id":1,"type":"shutdown"}{`,
+		"object then a number":       `{"id":1,"type":"shutdown"}1`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := run(t, line, `{"id":3,"type":"nope"}`)
+			if len(r) != 2 {
+				t.Fatalf("want a reply to each line, got %v", r)
+			}
+			if got := errCode(t, r[0]); got != ErrInvalidMessage || r[0]["id"] != nil {
+				t.Errorf("first line: %v", r[0])
+			}
+			// The first command did not run (a shutdown would have ended the stream), so the next
+			// line is still served.
+			if got := errCode(t, r[1]); got != ErrUnknownCommand {
+				t.Errorf("second line: %v", r[1])
+			}
+		})
+	}
+	// Whitespace after the object is not data.
+	r := run(t, `{"id":1,"type":"nope"}   `)
+	if got := errCode(t, r[0]); got != ErrUnknownCommand {
+		t.Errorf("trailing whitespace: %v", r[0])
+	}
+}

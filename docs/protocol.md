@@ -100,6 +100,11 @@ only together with fixtures for the new version.
 
 ## Process behavior
 
+- **One command per line, exactly.** A line is one JSON object, optionally followed by whitespace.
+  A line with anything else after the object (a second object such as
+  `{"type":"shutdown"}{"type":"shutdown"}`, with or without a separator, or any other data) is
+  `protocol.invalid_message` with a null `id`, and **none** of it runs, not even the first object.
+  The stream stays usable. A blank line and a line that is not an object are rejected the same way.
 - stdout carries protocol replies only. Library logging (pb33f logs reference errors) goes to
   stderr, and `os.Stdout` is pointed at stderr inside the process so stray writes cannot corrupt
   the stream. A clean run writes nothing to stderr.
