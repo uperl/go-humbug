@@ -351,3 +351,62 @@ func TestIdleUntilFirstCommand(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func validateBody(id int, body string) string {
+	return fmt.Sprintf(`{"id":%d,"type":"validate","params":{"request":{"method":"POST","url":"http://example.test/users","headers":[["Content-Type","application/json"],["X-Request-Id","abc"]],"body_base64":"%s"}}}`, id, base64Std(body))
+}
+
+// A body of nested brackets must neither exhaust memory nor kill the process. The source-map
+// parser once cost memory proportional to the square of the nesting depth: 100 KB took 3 GB and
+// 1 MB got the process killed by the OS without a reply.
+func TestDeeplyNestedBodyGetsAReplyAndTheProcessSurvives(t *testing.T) {
+	p := start(t)
+	p.call(initCmd)
+
+	begin := time.Now()
+	r := p.call(validateBody(2, strings.Repeat("[", 5_000_000))) // a 5 MB body
+	if r["type"] != "result" {
+		t.Fatalf("reply: %v", r)
+	}
+	if d := time.Since(begin); d > 10*time.Second {
+		t.Errorf("a nested body took %v to answer", d)
+	}
+	res := r["result"].(map[string]any)["request"].(map[string]any)
+	if res["status"] != "invalid" {
+		t.Errorf("request: %v", res)
+	}
+	found := false
+	for _, d := range res["diagnostics"].([]any) {
+		if d.(map[string]any)["code"] == "body.decode" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected body.decode for the malformed body: %v", res["diagnostics"])
+	}
+
+	// Still alive and correct afterwards.
+	if r := p.call(validateCmd(3, "valid")); r["type"] != "result" || r["result"].(map[string]any)["valid"] != true {
+		t.Errorf("after the nested body: %v", r)
+	}
+}
+
+// A valid document nested close to the limit keeps its spans: the index must still be built and used.
+func TestDeepButValidBodyKeepsItsSpans(t *testing.T) {
+	const depth = 9000
+	body := strings.Repeat("[", depth) + strings.Repeat("]", depth)
+	p := start(t)
+	p.call(initCmd)
+	r := p.call(validateBody(2, body))
+	res := r["result"].(map[string]any)["request"].(map[string]any)
+	var span map[string]any
+	for _, d := range res["diagnostics"].([]any) {
+		if dd := d.(map[string]any); dd["code"] == "schema.type" {
+			span, _ = dd["instance"].(map[string]any)["span"].(map[string]any)
+		}
+	}
+	// The root is an array where /users expects an object: the finding spans the whole document.
+	if span == nil || span["part"] != "value" || span["start"] != float64(0) || span["end"] != float64(2*depth) {
+		t.Errorf("root span: %v (diagnostics %v)", span, res["diagnostics"])
+	}
+}

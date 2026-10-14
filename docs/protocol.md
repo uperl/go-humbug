@@ -109,6 +109,10 @@ was routed and validated). That differs from the expectations above in these way
 ## Behavior notes
 
 - Messages are generated from structure and never echo payload values.
+- JSON nested more than 10,000 levels deep is treated as malformed (`body.decode`; `detail.parser`
+  names the depth limit). This is the depth limit of Go's JSON decoder, which the validation
+  library uses, so such a body is rejected by the library regardless. The source-map index
+  (spans) costs memory proportional to the number of values, not to their nesting depth.
 - Unmatched path/method: request side reports `operation.not_found` /
   `operation.method_not_allowed`; both sides are `complete: false`. A response side that could
   not be routed gets an info-level `validation.incomplete` diagnostic (`reason` names the cause).
