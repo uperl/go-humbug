@@ -54,19 +54,20 @@ header pairs, and the error/result split are as in the draft.
 - Order: request, then response; within a side by location, parameter name, instance pointer,
   schema pointer, code. IDs (`d1`…) are assigned after sorting.
 
-## Content-Encoding and body size
+## Bodies and Content-Encoding
 
-Bodies in the protocol are the *decoded* HTTP body, but `Content-Encoding` is honored defensively:
+`body_base64` is the **already-decoded** HTTP body: the bytes after any transfer and content
+decoding, exactly as the application sees them. Humbug never decompresses or otherwise decodes a
+body.
 
-- `identity` or none: used as is.
-- `gzip` / `x-gzip` (alone): decompressed by Humbug, then validated. Spans and pointers refer to the
-  decompressed bytes. Decompressed size is capped at 64 MiB (`validation.MaxDecodedBodyBytes`).
-- Corrupt gzip: `body.decode` (`detail.content_encoding`), side `invalid`.
-- Over the cap: `validation.incomplete`, reason `body.too_large`.
-- Any other or stacked encoding (`br`, `deflate`, `gzip, br`): `validation.incomplete`, reason
-  `body.content_encoding_unsupported`. The library's findings on the undecoded bytes are discarded.
+`Content-Encoding` headers are preserved like any other header and passed to the validator, but
+Humbug takes no action on them. A `gzip` header over a plain JSON body is validated as JSON, and
+spans refer to the supplied bytes. If a client sends still-compressed bytes, that is a client
+error: the bytes are reported as `body.decode` (malformed JSON) and nothing mentions gzip.
 
-No other size limits apply; an 8 MiB JSON body is validated and mapped in well under a second.
+Clients that capture compressed bodies must decode them first. There is no size limit on bodies
+beyond the command line limit (256 MiB, provisional); an 8 MiB JSON body is validated and mapped in
+well under a second.
 
 ## Known library limitations (pinned pb33f v0.16.1)
 

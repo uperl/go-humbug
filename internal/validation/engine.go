@@ -149,12 +149,9 @@ func (e *InputError) Unwrap() error { return e.Err }
 func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 	res := &diagnostics.Result{Request: diagnostics.Skipped(), Response: diagnostics.Skipped()}
 
-	// Decode Content-Encoding first; everything below sees decoded bodies.
-	reqMsg := p.Request
-	var reqIssue, resIssue *bodyIssue
-	reqMsg.Body, reqIssue = resolveBody(p.Request.Headers, p.Request.Body)
-
-	req, err := reqMsg.http()
+	// Bodies are the already-decoded HTTP bodies. Content-Encoding headers are preserved and
+	// passed through but never acted on: Humbug does not decompress anything.
+	req, err := p.Request.http()
 	if err != nil {
 		return nil, &InputError{err}
 	}
@@ -167,20 +164,16 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 
 	if p.ValidateRequest {
 		_, errs := e.v.ValidateHttpRequest(req)
-		n := newNormalizer(diagnostics.SideRequest, bodyBytes(reqMsg.Body), reqMsg.Body != nil, e.model)
-		n.issue = reqIssue
+		n := newNormalizer(diagnostics.SideRequest, bodyBytes(p.Request.Body), p.Request.Body != nil, e.model)
 		n.noteUninspected(contentType(p.Request.Headers))
 		res.Request = n.result(errs)
 	}
 
 	if p.ValidateResponse && p.Response != nil {
-		resMsg := *p.Response
-		resMsg.Body, resIssue = resolveBody(p.Response.Headers, p.Response.Body)
-		req2, _ := reqMsg.http() // fresh request: validators may consume the body
-		resp := resMsg.http(req2)
+		req2, _ := p.Request.http() // fresh request: validators may consume the body
+		resp := p.Response.http(req2)
 		_, errs := e.v.ValidateHttpResponse(req2, resp)
-		n := newNormalizer(diagnostics.SideResponse, bodyBytes(resMsg.Body), resMsg.Body != nil, e.model)
-		n.issue = resIssue
+		n := newNormalizer(diagnostics.SideResponse, bodyBytes(p.Response.Body), p.Response.Body != nil, e.model)
 		n.noteUninspected(contentType(p.Response.Headers))
 		res.Response = n.result(errs)
 	}

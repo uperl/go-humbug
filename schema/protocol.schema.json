@@ -47,7 +47,7 @@
       "items": {"type": "array", "prefixItems": [{"type": "string"}, {"type": "string"}], "items": false, "minItems": 2}
     },
     "body": {
-      "description": "Base64 of the original body bytes. Absent or null = no body; \"\" = explicitly empty body.",
+      "description": "Base64 of the already-decoded body bytes. Humbug never decompresses; a Content-Encoding header is preserved but ignored. Absent or null = no body; \"\" = explicitly empty body.",
       "oneOf": [{"type": "null"}, {"type": "string", "contentEncoding": "base64"}]
     },
     "validateParams": {

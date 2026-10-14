@@ -69,65 +69,52 @@ func TestLargeBody(t *testing.T) {
 	}
 }
 
-func TestGzipBodies(t *testing.T) {
-	enc := `,["Content-Encoding","gzip"]`
+// Content-Encoding headers are preserved and passed through but never acted on: body_base64
+// is the already-decoded body, so a gzip header over a plain JSON body is validated as JSON.
+func TestContentEncodingHeaderIsIgnored(t *testing.T) {
 	good := []byte(`{"name":"Ann","age":1,"profile":{"bio":"b"}}`)
 	bad := []byte(`{"name":"Ann","age":"x","profile":{"bio":"b"}}`)
-	var bomb bytes.Buffer
-	zw := gzip.NewWriter(&bomb)
-	zero := make([]byte, 1<<20)
-	for i := 0; i < 65; i++ { // 65 MiB decoded, over the 64 MiB cap
-		zw.Write(zero)
-	}
-	zw.Close()
-
-	r := run(t, init0(),
-		validate(2, postRaw(enc, gz(t, good)), "", ""),
-		validate(3, postRaw(enc, gz(t, bad)), "", ""),
-		validate(4, postRaw(enc, []byte("not gzip at all")), "", ""),
-		validate(5, postRaw(`,["Content-Encoding","br"]`, []byte("whatever")), "", ""),
-		validate(6, postRaw(`,["content-encoding","identity"]`, good), "", ""),
-		validate(7, postRaw(`,["Content-Encoding","gzip, br"]`, gz(t, good)), "", ""),
-		validate(8, postRaw(enc, bomb.Bytes()), "", ""),
-	)
-	if res := result(t, r[1]); res["valid"] != true {
-		t.Errorf("gzip good: %v", res)
-	}
-	// Spans refer to the decoded body.
-	inst := sideOf(result(t, r[2]), "request")["diagnostics"].([]any)[0].(obj)["instance"].(obj)
-	if inst["pointer"] != "/age" || spanText(t, bad, inst) != `"x"` {
-		t.Errorf("gzip bad: %v", inst)
-	}
-	corrupt := sideOf(result(t, r[3]), "request")["diagnostics"].([]any)
-	if len(corrupt) != 1 || corrupt[0].(obj)["code"] != "body.decode" || corrupt[0].(obj)["detail"].(obj)["content_encoding"] != "gzip" {
-		t.Errorf("corrupt gzip: %v", corrupt)
-	}
-	for i, want := range map[int]string{4: "body.content_encoding_unsupported", 6: "body.content_encoding_unsupported", 7: "body.too_large"} {
-		side := sideOf(result(t, r[i]), "request")
-		ds := side["diagnostics"].([]any)
-		if side["status"] != "incomplete" || len(ds) != 1 || ds[0].(obj)["reason"] != want {
-			t.Errorf("reply %d: want %s, got %v", i, want, side)
+	for _, enc := range []string{"gzip", "br", "gzip, br", "identity", "deflate"} {
+		h := `,["Content-Encoding","` + enc + `"]`
+		r := run(t, init0(), validate(2, postRaw(h, good), "", ""), validate(3, postRaw(h, bad), "", ""))
+		if res := result(t, r[1]); res["valid"] != true || res["complete"] != true {
+			t.Errorf("%s: decoded body must validate normally: %v", enc, res)
 		}
-	}
-	if res := result(t, r[5]); res["valid"] != true {
-		t.Errorf("identity encoding: %v", res)
+		d := diagsOf(result(t, r[2]), "request")
+		if len(d) != 1 || d[0]["code"] != "schema.type" || spanText(t, bad, d[0]["instance"].(obj)) != `"x"` {
+			t.Errorf("%s: span must refer to the supplied bytes: %v", enc, d)
+		}
 	}
 }
 
-func TestGzipResponseBody(t *testing.T) {
+// If a client sends still-compressed bytes (a contract violation on its side), Humbug does not
+// decompress them: the bytes are malformed JSON and are reported as such.
+func TestCompressedBytesAreNotDecoded(t *testing.T) {
+	body := gz(t, []byte(`{"name":"Ann","age":1,"profile":{"bio":"b"}}`))
+	r := result(t, run(t, init0(), validate(2, postRaw(`,["Content-Encoding","gzip"]`, body), "", ""))[1])
+	d := diagsOf(r, "request")
+	if len(d) != 1 || d[0]["code"] != "body.decode" || d[0]["severity"] != "error" {
+		t.Errorf("compressed bytes: %v", d)
+	}
+	if det, _ := d[0]["detail"].(obj); det["content_encoding"] != nil {
+		t.Errorf("Content-Encoding must not influence diagnostics: %v", d[0])
+	}
+}
+
+func TestContentEncodingOnResponseIsIgnored(t *testing.T) {
 	req := `{"method":"GET","url":"http://example.test/users/7"}`
-	mk := func(body []byte) string {
-		return `{"status":200,"headers":[["Content-Type","application/json"],["Content-Encoding","gzip"]],"body_base64":"` + b64b(gz(t, body)) + `"}`
+	mk := func(body string) string {
+		return `{"status":200,"headers":[["Content-Type","application/json"],["Content-Encoding","gzip"]],"body_base64":"` + b64(body) + `"}`
 	}
 	r := run(t, init0(),
-		validate(2, req, mk([]byte(`{"id":1,"name":"Ann"}`)), `{"request":false}`),
-		validate(3, req, mk([]byte(`{"id":"1","name":"Ann"}`)), `{"request":false}`),
+		validate(2, req, mk(`{"id":1,"name":"Ann"}`), `{"request":false}`),
+		validate(3, req, mk(`{"id":"1","name":"Ann"}`), `{"request":false}`),
 	)
 	if result(t, r[1])["valid"] != true {
-		t.Errorf("good gzip response: %v", result(t, r[1]))
+		t.Errorf("response: %v", result(t, r[1]))
 	}
 	if c := codes(sideOf(result(t, r[2]), "response")); len(c) != 1 || c[0] != "schema.type" {
-		t.Errorf("bad gzip response: %v", c)
+		t.Errorf("bad response: %v", c)
 	}
 }
 
