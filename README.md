@@ -60,4 +60,5 @@ enforced). These are documented under "Known library limitations" and pinned by 
 
 ## License
 
-MIT; see `LICENSE`.
+MIT; see `LICENSE`. The licenses of what the binary includes are in `THIRD_PARTY_LICENSES`
+(regenerate with `make licenses` after a dependency change).
