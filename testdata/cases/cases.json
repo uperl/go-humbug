@@ -366,8 +366,8 @@
  },
  {
   "id": "F23",
-  "desc": "binary body to octet-stream operation",
-  "expect": "incomplete",
+  "desc": "binary body to octet-stream operation (string/binary schema)",
+  "expect": "valid",
   "req": {
    "method": "POST",
    "url": "/upload",
@@ -379,8 +379,8 @@
  },
  {
   "id": "F24",
-  "desc": "non-JSON text body too short",
-  "expect": "incomplete",
+  "desc": "text body shorter than minLength",
+  "expect": "request-invalid",
   "req": {
    "method": "POST",
    "url": "/notes",
@@ -393,7 +393,7 @@
  {
   "id": "F25",
   "desc": "non-JSON text body ok",
-  "expect": "incomplete",
+  "expect": "valid",
   "req": {
    "method": "POST",
    "url": "/notes",
@@ -507,6 +507,91 @@
     "Content-Type": "application/json"
    },
    "body": "{}"
+  }
+ },
+ {
+  "id": "F35",
+  "desc": "application/vcl body, valid UTF-8 string",
+  "expect": "valid",
+  "req": {
+   "method": "PUT",
+   "url": "/vcl",
+   "headers": {
+    "Content-Type": "application/vcl"
+   },
+   "body": "sub vcl_recv { }"
+  }
+ },
+ {
+  "id": "F36",
+  "desc": "application/vcl body shorter than minLength",
+  "expect": "request-invalid",
+  "req": {
+   "method": "PUT",
+   "url": "/vcl",
+   "headers": {
+    "Content-Type": "application/vcl"
+   },
+   "body": "sub"
+  }
+ },
+ {
+  "id": "F37",
+  "desc": "application/vcl with a non-UTF-8 charset is not inspected",
+  "expect": "incomplete",
+  "req": {
+   "method": "PUT",
+   "url": "/vcl",
+   "headers": {
+    "Content-Type": "application/vcl; charset=iso-8859-1"
+   },
+   "body": "sub vcl_recv { }"
+  }
+ },
+ {
+  "id": "F38",
+  "desc": "non-JSON response body (2XX wildcard) violates its string schema",
+  "expect": "response-invalid",
+  "req": {
+   "method": "PUT",
+   "url": "/vcl",
+   "headers": {
+    "Content-Type": "application/vcl"
+   },
+   "body": "sub vcl_recv { }"
+  },
+  "res": {
+   "status": 201,
+   "headers": {
+    "Content-Type": "application/vcl"
+   },
+   "body": ""
+  }
+ },
+ {
+  "id": "F39",
+  "desc": "form body under an object schema stays incomplete",
+  "expect": "incomplete",
+  "req": {
+   "method": "POST",
+   "url": "/form",
+   "headers": {
+    "Content-Type": "application/x-www-form-urlencoded"
+   },
+   "body": "a=1"
+  }
+ },
+ {
+  "id": "F40",
+  "desc": "media type declared without a schema: any content conforms",
+  "expect": "valid",
+  "req": {
+   "method": "POST",
+   "url": "/anycsv",
+   "headers": {
+    "Content-Type": "text/csv"
+   },
+   "body": "a,b\n1,2"
   }
  }
 ]

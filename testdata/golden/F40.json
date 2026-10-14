@@ -1,0 +1,24 @@
+{
+  "complete": true,
+  "has_violations": false,
+  "operation": {
+    "method": "POST",
+    "operation_id": "anyCsv",
+    "path": "/anycsv"
+  },
+  "request": {
+    "complete": true,
+    "diagnostics": [],
+    "has_violations": false,
+    "status": "valid",
+    "valid": true
+  },
+  "response": {
+    "complete": true,
+    "diagnostics": [],
+    "has_violations": false,
+    "status": "skipped",
+    "valid": false
+  },
+  "valid": true
+}

@@ -279,3 +279,152 @@ func TestCompositionOnBothSidesKeepsReferencesApart(t *testing.T) {
 		t.Errorf("expected composition groups on both sides: %v", r)
 	}
 }
+
+// ---- non-JSON bodies: validated by schema shape, never by media-type name ----
+
+func putRaw(url, ct string, body []byte, method string) string {
+	h := `[]`
+	if ct != "" {
+		h = `[["Content-Type","` + ct + `"]]`
+	}
+	return `{"method":"` + method + `","url":"http://example.test` + url + `","headers":` + h + `,"body_base64":"` + b64b(body) + `"}`
+}
+
+func reasonsOf(side obj) []string {
+	var out []string
+	for _, d := range side["diagnostics"].([]any) {
+		if r, ok := d.(obj)["reason"].(string); ok {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+func TestApplicationVCLIsValidatedAsAString(t *testing.T) {
+	r := run(t, init0(),
+		validate(2, putRaw("/vcl", "application/vcl", []byte("sub vcl_recv { }"), "PUT"), "", ""),
+		validate(3, putRaw("/vcl", "application/vcl", []byte("sub"), "PUT"), "", ""),
+		validate(4, putRaw("/vcl", "Application/VCL; charset=UTF-8", []byte("sub vcl_recv { }"), "PUT"), "", ""),
+		validate(5, putRaw("/vcl", "application/vcl", []byte("sub \xff\xfe"), "PUT"), "", ""),
+		validate(6, putRaw("/vcl", "application/vcl; charset=iso-8859-1", []byte("sub vcl_recv { }"), "PUT"), "", ""),
+		// Not VCL at all, but it is a conforming string: Humbug does not check the format.
+		validate(7, putRaw("/vcl", "application/vcl", []byte(`{"this":"is not VCL"}`), "PUT"), "", ""),
+	)
+	if res := result(t, r[1]); res["valid"] != true || res["complete"] != true {
+		t.Errorf("valid UTF-8 VCL: %v", res)
+	}
+
+	short := diagsOf(result(t, r[2]), "request")
+	if len(short) != 1 || short[0]["code"] != "schema.minLength" || short[0]["severity"] != "error" {
+		t.Fatalf("too short: %v", short)
+	}
+	inst := short[0]["instance"].(obj)
+	if inst["location"] != "body" || inst["pointer"] != nil || inst["span"] != nil {
+		t.Errorf("a non-JSON body has no pointer or span: %v", inst)
+	}
+
+	if res := result(t, r[3]); res["valid"] != true {
+		t.Errorf("media type and charset are case-insensitive: %v", res)
+	}
+
+	bad := diagsOf(result(t, r[4]), "request")
+	if len(bad) != 1 || bad[0]["code"] != "body.decode" || bad[0]["detail"].(obj)["utf8_offset"] != "4" {
+		t.Errorf("invalid UTF-8: %v", bad)
+	}
+
+	cs := sideOf(result(t, r[5]), "request")
+	if cs["status"] != "incomplete" || len(reasonsOf(cs)) != 1 || reasonsOf(cs)[0] != "body.charset_unsupported" {
+		t.Errorf("non-UTF-8 charset must be incomplete, not valid: %v", cs)
+	}
+
+	if res := result(t, r[6]); res["valid"] != true {
+		t.Errorf("content that is not VCL still conforms to a string schema: %v", res)
+	}
+}
+
+func TestNonJSONResponseBodies(t *testing.T) {
+	req := putRaw("/vcl", "application/vcl", []byte("sub vcl_recv { }"), "PUT")
+	mk := func(status int, body string) string {
+		return `{"status":` + itoa(status) + `,"headers":[["Content-Type","application/vcl"]],"body_base64":"` + b64(body) + `"}`
+	}
+	r := run(t, init0(),
+		validate(2, req, mk(201, "ok"), `{"request":false}`), // matched via the 2XX wildcard
+		validate(3, req, mk(201, ""), `{"request":false}`),   // explicitly empty body, minLength 1
+	)
+	if res := result(t, r[1]); res["valid"] != true {
+		t.Errorf("2XX response: %v", res)
+	}
+	d := diagsOf(result(t, r[2]), "response")
+	if len(d) != 1 || d[0]["code"] != "schema.minLength" || d[0]["side"] != "response" {
+		t.Errorf("empty response body: %v", d)
+	}
+}
+
+func TestNonJSONSchemaShapes(t *testing.T) {
+	r := run(t, init0(),
+		validate(2, putRaw("/form", "application/x-www-form-urlencoded", []byte("a=1"), "POST"), "", ""),
+		validate(3, putRaw("/anycsv", "text/csv", []byte("a,b\n1,2"), "POST"), "", ""),
+		validate(4, putRaw("/wild", "text/vcl", []byte("abcde"), "POST"), "", ""),
+		validate(5, putRaw("/wild", "text/vcl", []byte("abcdef"), "POST"), "", ""),
+		validate(6, putRaw("/wild", "application/vcl", []byte("abc"), "POST"), "", ""),
+		validate(7, putRaw("/notes", "", []byte("hello"), "POST"), "", ""),
+	)
+	form := sideOf(result(t, r[1]), "request")
+	if form["status"] != "incomplete" || len(reasonsOf(form)) != 1 || reasonsOf(form)[0] != "body.not_inspected" {
+		t.Errorf("structured schema under a non-JSON type must stay incomplete: %v", form)
+	}
+	if res := result(t, r[2]); res["valid"] != true || res["complete"] != true {
+		t.Errorf("declared without a schema, any content conforms: %v", res)
+	}
+	if res := result(t, r[3]); res["valid"] != true {
+		t.Errorf("text/* wildcard, within limit: %v", res)
+	}
+	if c := codes(sideOf(result(t, r[4]), "request")); len(c) != 1 || c[0] != "schema.maxLength" {
+		t.Errorf("text/* wildcard, too long: %v", c)
+	}
+	if c := codes(sideOf(result(t, r[5]), "request")); len(c) != 1 || c[0] != "body.media_type" {
+		t.Errorf("undeclared media type is a media-type finding only: %v", c)
+	}
+	// No Content-Type: cannot tell what the body is, so it is never reported valid.
+	none := result(t, r[6])
+	if none["valid"] == true || sideOf(none, "request")["status"] == "valid" {
+		t.Errorf("body without Content-Type must not be valid: %v", none)
+	}
+}
+
+func TestTextBodyIsNotParsedAsJSON(t *testing.T) {
+	// These look like JSON (or a bare number) but are strings under a text media type.
+	for _, body := range []string{`{"a":1}`, `123`, `null`, `[1,2`} {
+		r := result(t, run(t, init0(), validate(2, putRaw("/notes", "text/plain", []byte(body), "POST"), "", ""))[1])
+		if r["valid"] != true || r["complete"] != true {
+			t.Errorf("%q must be a conforming string: %v", body, r)
+		}
+	}
+}
+
+// A violating text body that happens to be valid JSON must still get no pointer or span:
+// positions would point into a structure the sender never meant.
+func TestViolatingTextBodyThatParsesAsJSONHasNoSpan(t *testing.T) {
+	r := result(t, run(t, init0(), validate(2, putRaw("/notes", "text/plain", []byte(`12`), "POST"), "", ""))[1])
+	d := diagsOf(r, "request")
+	if len(d) != 1 || d[0]["code"] != "schema.minLength" {
+		t.Fatalf("diagnostics: %v", d)
+	}
+	if inst := d[0]["instance"].(obj); inst["span"] != nil || inst["pointer"] != nil {
+		t.Errorf("text body must have no span or pointer: %v", inst)
+	}
+}
+
+func TestBinaryLengthCountsBytesTextCountsCharacters(t *testing.T) {
+	// "ééé" is 3 characters but 6 bytes. maxLength is 4 on /blob (binary) and 5 on /wild (text).
+	r := run(t, init0(),
+		validate(2, putRaw("/blob", "application/octet-stream", []byte("ééé"), "POST"), "", ""),
+		validate(3, putRaw("/wild", "text/plain", []byte("ééé"), "POST"), "", ""),
+	)
+	if c := codes(sideOf(result(t, r[1]), "request")); len(c) != 1 || c[0] != "schema.maxLength" {
+		t.Errorf("binary counts bytes: %v", c)
+	}
+	if res := result(t, r[2]); res["valid"] != true {
+		t.Errorf("text counts characters: %v", res)
+	}
+}

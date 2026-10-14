@@ -32,6 +32,7 @@ type normalizer struct {
 	diags     []d.Diagnostic
 	seen      map[string]bool
 	incomplet bool
+	noSpans   bool // body is not JSON: findings carry no pointer or span
 }
 
 func newNormalizer(side string, body []byte, hasBody bool, model *v3.Document) *normalizer {
@@ -277,6 +278,10 @@ func (n *normalizer) leaf(f *verrors.SchemaValidationFailure, root *d.SchemaRef)
 
 func (n *normalizer) bodyInstance(ptr string, missingProp bool, miss []string) *d.Instance {
 	inst := &d.Instance{Location: "body", Pointer: ptr, Missing: miss}
+	if n.noSpans {
+		inst.Pointer = ""
+		return inst
+	}
 	ix, err := n.index()
 	if err != nil {
 		return inst
@@ -414,9 +419,9 @@ func nilToEmpty(s []string) []string {
 	return s
 }
 
-// noteUninspected marks the side incomplete when a body is present but is not a
-// JSON media type: the library only schema-validates JSON bodies, so any other
-// content has not been checked and must never be reported as conforming.
+// noteUninspected marks the side incomplete when a non-JSON body could not be checked
+// (structured schema under a non-JSON type, or no usable Content-Type): the library only
+// schema-validates JSON, so the content must never be reported as conforming.
 func (n *normalizer) noteUninspected(mediaType string) {
 	if !n.hasBody || isJSON(mediaType) {
 		return
@@ -429,6 +434,13 @@ func (n *normalizer) noteUninspected(mediaType string) {
 	n.add(d.Diagnostic{Code: d.CodeIncomplete, Severity: d.SeverityInfo, Reason: "body.not_inspected",
 		Instance: &d.Instance{Location: "body"}, Detail: detail,
 		Message: "body was not schema-validated: only JSON bodies are inspected"})
+}
+
+// incomplete marks the side incomplete with an info-level explanation for the body.
+func (n *normalizer) incomplete(reason string, detail map[string]string, msg string) {
+	n.incomplet = true
+	n.add(d.Diagnostic{Code: d.CodeIncomplete, Severity: d.SeverityInfo, Reason: reason,
+		Instance: &d.Instance{Location: "body"}, Detail: detail, Message: msg})
 }
 
 func isJSON(contentType string) bool {

@@ -84,8 +84,9 @@ well under a second.
 ## Known gaps
 
 - Missing-property names are only filled when unambiguous (not inside `oneOf`/`anyOf` branches).
-- Only JSON bodies are schema-validated; other media types make the side `incomplete`
-  (`validation.incomplete`, reason `body.not_inspected`). Form, XML and multipart support is deferred.
+- Non-JSON bodies are checked only when their schema is a string (see `diagnostics.md`, "Non-JSON
+  bodies"). Form, XML and multipart bodies under object schemas stay `incomplete`; parsing them is
+  deferred. Format validity (for example VCL syntax) is never checked.
 - Untested: security requirements, and path styles other than simple, label and matrix.
 - Repeated request headers are validated as pb33f sees them (fixture: the second `X-Request-Id`
   value changes the outcome); this is not normalized by Humbug.

@@ -1,32 +1,34 @@
 {
-  "complete": false,
-  "has_violations": false,
+  "complete": true,
+  "has_violations": true,
   "operation": {
     "method": "POST",
     "operation_id": "createNote",
     "path": "/notes"
   },
   "request": {
-    "complete": false,
+    "complete": true,
     "diagnostics": [
       {
-        "code": "validation.incomplete",
-        "detail": {
-          "media_type": "text/plain"
-        },
+        "code": "schema.minLength",
         "id": "d1",
         "instance": {
           "location": "body"
         },
-        "message": "body was not schema-validated: only JSON bodies are inspected",
-        "reason": "body.not_inspected",
-        "severity": "info",
+        "message": "body violates schema keyword \"minLength\"",
+        "schema": {
+          "column": 22,
+          "line": 124,
+          "pointer": "/minLength",
+          "relative": true
+        },
+        "severity": "error",
         "side": "request",
         "suppressed_by": null
       }
     ],
-    "has_violations": false,
-    "status": "incomplete",
+    "has_violations": true,
+    "status": "invalid",
     "valid": false
   },
   "response": {

@@ -31,7 +31,7 @@
         "message": "body at /profile is missing required properties",
         "schema": {
           "column": 7,
-          "line": 171,
+          "line": 220,
           "pointer": "/properties/profile/required",
           "relative": true
         },

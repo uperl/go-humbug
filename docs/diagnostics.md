@@ -35,12 +35,33 @@ diagnostics (`validation.incomplete`) explain why a side is `complete: false` an
 | `validation.incomplete` | A requested check could not run; `reason` says why (info) | varies |
 | `validation.unclassified` | The library reported something Humbug does not classify; original `validation_type`/`validation_sub_type` in `detail` | none |
 
-`validation.incomplete` reasons: `body.not_inspected` (a body is present but its media type is not
-JSON, so no schema check ran; `detail.media_type` has the type), `operation.not_found` and
-`operation.method_not_allowed` (response side could not be routed).
+`validation.incomplete` reasons: `body.not_inspected` (a non-JSON body whose schema Humbug cannot
+check as a string, or a body with no usable Content-Type; `detail.media_type` has the type),
+`body.charset_unsupported` (a text body declared in a charset other than UTF-8 or US-ASCII;
+`detail.charset`), `operation.not_found` and `operation.method_not_allowed` (response side could
+not be routed).
 
-Only JSON bodies are schema-validated. Any other body — text, binary, form, XML — makes the side
-`incomplete`, never `valid`, even if the library accepted it.
+## Non-JSON bodies
+
+JSON bodies (`application/json` and `+json`) are checked by the library, with pointers and spans.
+Every other body is handled by the shape of the schema declared for its media type, not by the
+media type's name. Matching is exact first, then `type/*`, then `*/*`; media types and charsets are
+case-insensitive.
+
+| Schema declared for the media type | Result |
+| --- | --- |
+| Media type not declared for the operation | `body.media_type` only; nothing else to check |
+| Declared with no schema | Any content conforms: valid and complete |
+| `type: string` (or untyped and unstructured) | The body is a string and the string keywords (`minLength`, `maxLength`, `pattern`, `enum`, …) apply; violations are `schema.<keyword>` |
+| `type: string, format: binary` | Raw bytes: length keywords count bytes, not characters |
+| Object, array or composition (form, XML, multipart) | Not parsed: `incomplete`, reason `body.not_inspected` |
+
+Text bodies must be valid UTF-8 (`body.decode`, `detail.utf8_offset` is the first bad byte); a
+charset other than UTF-8 or US-ASCII is `incomplete`. These diagnostics have no `pointer` or `span`:
+the body is not parsed as JSON even when it happens to look like JSON.
+
+Humbug does not check that content is valid for its format. For `application/vcl` with a string
+schema, "valid" means a UTF-8 string within the schema's limits, not syntactically valid VCL.
 
 ## Composition
 

@@ -165,6 +165,55 @@ paths:
                 anyOf:
                   - {$ref: '#/components/schemas/Email'}
                   - {$ref: '#/components/schemas/Phone'}
+  /vcl:
+    put:
+      operationId: putVcl
+      requestBody:
+        required: true
+        content:
+          application/vcl:
+            schema: {type: string, minLength: 4}
+      responses:
+        '2XX':
+          description: ok
+          content:
+            application/vcl:
+              schema: {type: string, minLength: 1}
+  /form:
+    post:
+      operationId: postForm
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema: {type: object, properties: {a: {type: string}}}
+      responses: {'204': {description: ok}}
+  /anycsv:
+    post:
+      operationId: anyCsv
+      requestBody:
+        required: true
+        content:
+          text/csv: {}
+      responses: {'204': {description: ok}}
+  /wild:
+    post:
+      operationId: wild
+      requestBody:
+        required: true
+        content:
+          'text/*':
+            schema: {type: string, maxLength: 5}
+      responses: {'204': {description: ok}}
+  /blob:
+    post:
+      operationId: blob
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: {type: string, format: binary, maxLength: 4}
+      responses: {'204': {description: ok}}
 components:
   schemas:
     NewUser:

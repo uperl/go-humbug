@@ -40,5 +40,5 @@ every reply against them. `docs/protocol.md` and `docs/diagnostics.md` describe 
 
 ## Known gaps
 
-See `docs/protocol.md` "Known gaps". Notably: only JSON bodies are schema-validated (others are
-reported `incomplete`), and pb33f mis-handles label/matrix path parameters (pinned by a test).
+See `docs/protocol.md` "Known gaps". Notably: structured non-JSON bodies (form, XML,
+multipart) are reported `incomplete`, and pb33f mis-handles label/matrix path parameters (pinned by a test).

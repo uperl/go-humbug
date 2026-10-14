@@ -17,6 +17,7 @@ import (
 	validator "github.com/pb33f/libopenapi-validator"
 	"github.com/pb33f/libopenapi-validator/config"
 	"github.com/pb33f/libopenapi-validator/paths"
+	"github.com/pb33f/libopenapi-validator/schema_validation"
 	"github.com/pb33f/libopenapi/datamodel"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 
@@ -39,6 +40,7 @@ type SpecInfo struct {
 
 type Engine struct {
 	v     validator.Validator
+	sv    schema_validation.SchemaValidator
 	model *v3.Document
 	Info  SpecInfo
 }
@@ -75,7 +77,7 @@ func Load(path string) (*Engine, error) {
 	if len(verrs) > 0 {
 		return nil, &SpecError{errors.Join(verrs...)}
 	}
-	e := &Engine{v: v, model: &model.Model}
+	e := &Engine{v: v, sv: schema_validation.NewSchemaValidatorWithLogger(logger), model: &model.Model}
 	e.Info.OpenAPIVersion = doc.GetSpecInfo().Version
 	if model.Model.Info != nil {
 		e.Info.Title = model.Model.Info.Title
@@ -156,16 +158,17 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 		return nil, &InputError{err}
 	}
 
+	var op *v3.Operation
 	if pi, _, tmpl := paths.FindPath(req, e.model, nil); pi != nil && tmpl != "" {
-		if id, ok := operationID(pi, req.Method); ok {
-			res.Operation = &diagnostics.Operation{Method: req.Method, Path: tmpl, OperationID: id}
+		if op = operationFor(pi, req.Method); op != nil {
+			res.Operation = &diagnostics.Operation{Method: req.Method, Path: tmpl, OperationID: op.OperationId}
 		}
 	}
 
 	if p.ValidateRequest {
 		_, errs := e.v.ValidateHttpRequest(req)
 		n := newNormalizer(diagnostics.SideRequest, bodyBytes(p.Request.Body), p.Request.Body != nil, e.model)
-		n.noteUninspected(contentType(p.Request.Headers))
+		e.inspectNonJSON(n, op, 0, p.Request.Headers, bodyBytes(p.Request.Body))
 		res.Request = n.result(errs)
 	}
 
@@ -174,7 +177,7 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 		resp := p.Response.http(req2)
 		_, errs := e.v.ValidateHttpResponse(req2, resp)
 		n := newNormalizer(diagnostics.SideResponse, bodyBytes(p.Response.Body), p.Response.Body != nil, e.model)
-		n.noteUninspected(contentType(p.Response.Headers))
+		e.inspectNonJSON(n, op, p.Response.Status, p.Response.Headers, bodyBytes(p.Response.Body))
 		res.Response = n.result(errs)
 	}
 
@@ -191,19 +194,6 @@ func bodyBytes(b *[]byte) []byte {
 		return nil
 	}
 	return *b
-}
-
-func operationID(pi *v3.PathItem, method string) (string, bool) {
-	ops := map[string]*v3.Operation{
-		http.MethodGet: pi.Get, http.MethodPost: pi.Post, http.MethodPut: pi.Put,
-		http.MethodDelete: pi.Delete, http.MethodPatch: pi.Patch, http.MethodHead: pi.Head,
-		http.MethodOptions: pi.Options, http.MethodTrace: pi.Trace,
-	}
-	op := ops[method]
-	if op == nil {
-		return "", false
-	}
-	return op.OperationId, true
 }
 
 // contentType returns the first Content-Type value (case-insensitive), or "".

@@ -328,24 +328,6 @@ func TestGolden(t *testing.T) {
 
 func itoa(n int) string { b, _ := json.Marshal(n); return string(b) }
 
-func TestNonJSONBodyIsIncompleteNeverValid(t *testing.T) {
-	for name, tc := range map[string]struct{ ct, url, body string }{
-		"text":   {"text/plain", "/notes", "hi"},
-		"binary": {"application/octet-stream", "/upload", "\x00\x01"},
-	} {
-		req := `{"method":"POST","url":"http://example.test` + tc.url + `","headers":[["Content-Type","` + tc.ct + `"]],"body_base64":"` + b64(tc.body) + `"}`
-		r := result(t, run(t, init0(), validate(2, req, "", ""))[1])
-		side := r["request"].(obj)
-		if r["valid"] == true || side["status"] != "incomplete" || side["complete"] != false {
-			t.Errorf("%s: %v", name, side)
-		}
-		d := side["diagnostics"].([]any)[0].(obj)
-		if d["code"] != "validation.incomplete" || d["reason"] != "body.not_inspected" || d["severity"] != "info" {
-			t.Errorf("%s diagnostic: %v", name, d)
-		}
-	}
-}
-
 func TestResponseArrayAndHeaders(t *testing.T) {
 	req := `{"method":"GET","url":"http://example.test/items","headers":[["Cookie","session=abcd"]]}`
 	body := `[{"id":1,"name":"a"},{"id":"2","name":"b"}]`
