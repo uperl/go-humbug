@@ -228,16 +228,16 @@ func (s *Server) initialize(id json.RawMessage, raw json.RawMessage) reply {
 }
 
 type wireRequest struct {
-	Method     string      `json:"method"`
-	URL        string      `json:"url"`
-	Headers    [][2]string `json:"headers"`
-	BodyBase64 *string     `json:"body_base64"`
+	Method     string     `json:"method"`
+	URL        string     `json:"url"`
+	Headers    [][]string `json:"headers"`
+	BodyBase64 *string    `json:"body_base64"`
 }
 
 type wireResponse struct {
-	Status     int         `json:"status"`
-	Headers    [][2]string `json:"headers"`
-	BodyBase64 *string     `json:"body_base64"`
+	Status     int        `json:"status"`
+	Headers    [][]string `json:"headers"`
+	BodyBase64 *string    `json:"body_base64"`
 }
 
 func (s *Server) validate(id json.RawMessage, raw json.RawMessage) reply {
@@ -278,11 +278,21 @@ func (s *Server) validate(id json.RawMessage, raw json.RawMessage) reply {
 	if !params.ValidateRequest && !params.ValidateResponse {
 		return bad("nothing to validate: both checks are disabled")
 	}
+	reqHeaders, msg := headerPairs("request", p.Request.Headers)
+	if msg != "" {
+		return bad(msg)
+	}
+	var resHeaders []validation.Header
+	if p.Response != nil {
+		if resHeaders, msg = headerPairs("response", p.Response.Headers); msg != "" {
+			return bad(msg)
+		}
+	}
 	rb, err := decodeBody(p.Request.BodyBase64)
 	if err != nil {
 		return bad("request.body_base64 is not valid base64")
 	}
-	params.Request = validation.Request{Method: p.Request.Method, URL: p.Request.URL, Headers: pairs(p.Request.Headers), Body: rb}
+	params.Request = validation.Request{Method: p.Request.Method, URL: p.Request.URL, Headers: reqHeaders, Body: rb}
 	if p.Response != nil {
 		if p.Response.Status < 100 || p.Response.Status > 599 {
 			return bad("response.status must be an HTTP status code")
@@ -291,7 +301,7 @@ func (s *Server) validate(id json.RawMessage, raw json.RawMessage) reply {
 		if err != nil {
 			return bad("response.body_base64 is not valid base64")
 		}
-		params.Response = &validation.Response{Status: p.Response.Status, Headers: pairs(p.Response.Headers), Body: sb}
+		params.Response = &validation.Response{Status: p.Response.Status, Headers: resHeaders, Body: sb}
 	}
 	res, err := s.v.Validate(params)
 	if err != nil {
@@ -320,10 +330,18 @@ func decodeBody(s *string) (*[]byte, error) {
 	return &b, nil
 }
 
-func pairs(h [][2]string) []validation.Header {
+// headerPairs converts the wire's ordered header list without altering it: order, duplicates,
+// casing and values are carried exactly as sent. The only check is structural: every entry must
+// be a two-element [name, value] array (a decoder fixed to two elements would silently drop or
+// invent a value). What a name or value may contain is not the protocol's business; that is up to
+// the implementation.
+func headerPairs(side string, h [][]string) ([]validation.Header, string) {
 	out := make([]validation.Header, len(h))
 	for i, p := range h {
-		out[i] = validation.Header(p)
+		if len(p) != 2 {
+			return nil, fmt.Sprintf("%s.headers[%d]: must be a [name, value] pair", side, i)
+		}
+		out[i] = validation.Header{p[0], p[1]}
 	}
-	return out
+	return out, ""
 }

@@ -21,13 +21,14 @@ diagnostics (`validation.incomplete`) explain why a side is `complete: false` an
 | `operation.not_found` | No path in the specification matches | `operation` |
 | `operation.method_not_allowed` | Path matches, method has no operation | `operation` |
 | `parameter.required` | Required query/header/path/cookie parameter missing | `location`, `name` |
-| `parameter.invalid` | Parameter present but fails its schema (including array items) | `location`, `name` |
+| `parameter.invalid` | Parameter present but fails its schema (including array items). `detail.empty` is `"true"` when a header parameter was sent empty | `location`, `name` |
 | `body.required` | Operation requires a body and none was supplied (absent, not empty) | `body` |
 | `body.decode` | Body present but not decodable (malformed JSON, or empty) | `body`, zero-width `span` at the parse error |
 | `body.media_type` | Content-Type not defined for the operation | `header` `Content-Type` |
 | `response.status` | Status code not defined for the operation | `status` |
 | `response.header.required` | Required response header missing | `header`, `name` |
-| `response.header.invalid` | Response header fails its schema | `header`, `name` |
+| `response.header.invalid` | Response header is present but fails its schema | `header`, `name` |
+| `header.repeated` | A single-valued header (or `Content-Type`) was sent on more than one line. **Warning**, not a violation; `detail.lines` has the count | `header`, `name` |
 | `schema.<keyword>` | Body fails a JSON Schema keyword: `type`, `required`, `enum`, `format`, `pattern`, `minimum`, `minLength`, … (`additionalProperties` is `schema.additional_properties`) | `body`, `pointer`, `span` |
 | `schema.oneOf.no_match` | No `oneOf` branch matched; branch failures are `children` | `body`, `pointer` |
 | `schema.oneOf.ambiguous` | More than one `oneOf` branch matched | `body`, `pointer` |

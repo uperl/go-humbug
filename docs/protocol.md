@@ -20,8 +20,8 @@ header pairs, and the error/result split are as in the draft.
    pointer, the closest existing ancestor with `contextual: true`. Duplicate member names set
    `ambiguous: true` and report the last occurrence. Malformed JSON gives `body.decode` with a
    zero-width span at the parser's error offset (`detail.parser` has the parser message).
-5. **Limits.** Command lines over 256 MiB get `protocol.line_too_long`. Header names are
-   passed through; repeated headers are passed as repeated values and interpreted by pb33f.
+5. **Limits.** Command lines over 256 MiB get `protocol.line_too_long`. Header handling is
+   described under "Headers" below; there are no header count or size caps beyond the line limit.
 6. **Schema locations.** `schema.pointer` is relative to the root schema of the validated
    body (`relative: true`); `line`/`column` locate that root schema, from the library. The file
    name is not exposed by the library and is omitted.
@@ -53,6 +53,65 @@ header pairs, and the error/result split are as in the draft.
   `body.decode`.
 - Order: request, then response; within a side by location, parameter name, instance pointer,
   schema pointer, code. IDs (`d1`…) are assigned after sorting.
+
+## Headers
+
+### The wire contract (any implementation)
+
+`headers` on a request or response is the message's header lines **exactly as captured**: an
+ordered list of `[name, value]` string pairs. The protocol guarantees that this list reaches the
+implementation verbatim:
+
+- order is preserved, including the relative order of different names;
+- duplicates stay separate entries, and lines are never combined or split (a comma is just a
+  character);
+- name casing and value text, including leading and trailing whitespace and empty values, are not
+  altered;
+- nothing is validated: the protocol does not care what a name or value contains.
+
+The only check is structural. Every entry must be a two-element array of strings; anything else
+(`["X-A"]`, `["X-A","v","extra"]`, an object, a number) is `protocol.invalid_message`, because
+silently dropping or inventing an element would change what was sent. `headers` may be absent or
+empty (both mean no headers).
+
+This contract is what lets another implementation replace Humbug behind the same protocol: it
+receives the original header lines and is free to interpret them differently. It is pinned by
+`wire_test.go`, which hands the protocol layer a stand-in implementation and asserts exact
+equality, including order, for unusual input.
+
+Limitation: header values are JSON strings, so bytes that are not valid UTF-8 (obs-text) cannot be
+carried. How to represent them is undecided.
+
+### What Humbug does with headers (implementation behavior)
+
+These rules belong to Humbug, not to the protocol, and another implementation may differ:
+
+- **Headers that cannot exist in HTTP are an input error.** A name that is not an RFC 9110 token,
+  or a value with a control character other than tab (CR, LF, NUL, DEL, ...), is rejected with
+  `validator.unsupported_input` (an execution failure, not a contract finding). The message never
+  repeats the content. Response headers are only judged when the response is being validated.
+- **Names are case-insensitive.** Diagnostics always carry the name as declared in the
+  specification, whatever casing was sent.
+- **Lines are never joined.** Each line stays a separate value. In particular `Set-Cookie` lines
+  must never be combined (cookie values can contain commas), and multiple `Cookie` lines are
+  cookie pairs, which the library reads together.
+- **Repeated lines are reported, not hidden.** If a header the specification declares as a single
+  value (not an array) is sent on more than one line, or `Content-Type` is, the side gets a
+  `header.repeated` diagnostic with `severity: warning` and `detail.lines`. A warning is not a
+  violation: `valid` and `has_violations` are unaffected. Array-typed headers, `Set-Cookie`, and
+  headers the specification does not declare are exempt.
+- **Empty values count as present.** The library treats an empty request header value as absent,
+  which reports a false "missing" for schemas that allow `""` and misses violations for schemas
+  that do not. For a declared header parameter whose first line is empty, Humbug discards that
+  finding and judges the empty string itself: string schemas are validated, and numeric, integer
+  and boolean schemas always reject it (`parameter.invalid`, `detail.empty: "true"`). A header that
+  was not sent at all is still `parameter.required`.
+- **`Host` is ignored.** The URL in the request is authoritative for routing.
+- Header values never appear in diagnostics.
+
+Internally Humbug builds a Go `http.Header` (which canonicalizes names and groups lines by name)
+only after the wire list has been handed over and checked; the original list is what the header
+rules above are evaluated against.
 
 ## Bodies and Content-Encoding
 
@@ -88,6 +147,10 @@ well under a second.
   bodies"). Form, XML and multipart bodies under object schemas stay `incomplete`; parsing them is
   deferred. Format validity (for example VCL syntax) is never checked.
 - Untested: security requirements, and path styles other than simple, label and matrix.
-- Repeated request headers are validated as pb33f sees them (fixture: the second `X-Request-Id`
-  value changes the outcome); this is not normalized by Humbug.
+- Repeated lines of an ordinary single-valued request header: the library validates only the first
+  line (response headers: every line). Humbug reports the repetition (`header.repeated`, a
+  warning) but does not validate the later request lines individually.
+- Array and object header parameters sent empty are left to the library, which treats empty as absent.
+- `Set-Cookie` response headers are validated per line by the library; Humbug does not parse cookie
+  attributes.
 - 3.0 is covered by one transaction test (`nullable`, boolean `exclusiveMinimum`) only.

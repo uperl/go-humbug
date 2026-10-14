@@ -32,7 +32,8 @@ type normalizer struct {
 	diags     []d.Diagnostic
 	seen      map[string]bool
 	incomplet bool
-	noSpans   bool // body is not JSON: findings carry no pointer or span
+	noSpans   bool                  // body is not JSON: findings carry no pointer or span
+	decls     map[string]headerDecl // declared headers by lower-cased name
 }
 
 func newNormalizer(side string, body []byte, hasBody bool, model *v3.Document) *normalizer {
@@ -108,13 +109,17 @@ func (n *normalizer) one(e *verrors.ValidationError) {
 				Message: fmt.Sprintf("%s parameter %q is invalid", loc, e.ParameterName)})
 			return
 		}
+		pname := e.ParameterName
+		if loc == "header" {
+			pname = n.hname(pname)
+		}
 		for _, f := range fails {
 			code, word := d.CodeParameterInvalid, "is invalid"
 			if kw := lastSeg(f.KeywordLocation); kw == "required" {
 				code, word = d.CodeParameterRequired, "is required but missing"
 			}
-			n.addDedup(d.Diagnostic{Code: code, Instance: &d.Instance{Location: loc, Name: e.ParameterName},
-				Message: fmt.Sprintf("%s parameter %q %s", loc, e.ParameterName, word)}, "")
+			n.addDedup(d.Diagnostic{Code: code, Instance: &d.Instance{Location: loc, Name: pname},
+				Message: fmt.Sprintf("%s parameter %q %s", loc, pname, word)}, "")
 		}
 
 	case typ == "requestBody" && sub == "contentType":
@@ -125,12 +130,20 @@ func (n *normalizer) one(e *verrors.ValidationError) {
 		n.add(d.Diagnostic{Code: d.CodeBodyMediaType, Instance: &d.Instance{Location: "header", Name: "Content-Type"},
 			Message: "response body media type is not defined for this operation"})
 
-	case typ == "response" && sub == "header":
+	case typ == "response" && (sub == "header" || sub == "headers"):
+		// "header" is a missing required header (name in the failure); "headers" is a header
+		// that is present but fails its schema (name in ParameterName, lower-cased).
+		if sub == "headers" {
+			n.addDedup(d.Diagnostic{Code: d.CodeResponseHeaderInv, Instance: &d.Instance{Location: "header", Name: n.hname(e.ParameterName)},
+				Message: fmt.Sprintf("response header %q is invalid", n.hname(e.ParameterName))}, "")
+			return
+		}
 		for _, f := range e.SchemaValidationErrors {
 			name := f.FieldName
 			if name == "" && len(f.InstancePath) > 0 {
 				name = f.InstancePath[0]
 			}
+			name = n.hname(name)
 			code, word := d.CodeResponseHeaderInv, "is invalid"
 			if lastSeg(f.KeywordLocation) == "required" {
 				code, word = d.CodeResponseHeaderReq, "is required but missing"

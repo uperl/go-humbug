@@ -43,8 +43,13 @@
     },
     "headers": {
       "type": "array",
-      "description": "Ordered name/value pairs; duplicates and original case preserved",
-      "items": {"type": "array", "prefixItems": [{"type": "string"}, {"type": "string"}], "items": false, "minItems": 2}
+      "description": "The message's header lines exactly as captured, as an ordered list of [name, value] pairs. Order, duplicates, casing and values are carried verbatim; the protocol does not normalize, combine, deduplicate or validate them. What an implementation does with unusual headers is implementation behavior.",
+      "items": {
+        "type": "array",
+        "prefixItems": [{"type": "string"}, {"type": "string"}],
+        "items": false,
+        "minItems": 2
+      }
     },
     "body": {
       "description": "Base64 of the already-decoded body bytes. Humbug never decompresses; a Content-Encoding header is preserved but ignored. Absent or null = no body; \"\" = explicitly empty body.",

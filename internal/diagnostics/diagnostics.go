@@ -43,6 +43,7 @@ const (
 	CodeSchemaAnyOf          = "schema.anyOf"
 	CodeSchemaPrefix         = "schema."
 	CodeResponseHeaderInv    = "response.header.invalid"
+	CodeHeaderRepeated       = "header.repeated"
 	CodeIncomplete           = "validation.incomplete"
 	CodeUnclassified         = "validation.unclassified"
 )

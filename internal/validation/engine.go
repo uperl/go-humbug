@@ -151,6 +151,15 @@ func (e *InputError) Unwrap() error { return e.Err }
 func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 	res := &diagnostics.Result{Request: diagnostics.Skipped(), Response: diagnostics.Skipped()}
 
+	if err := checkHeaders("request", p.Request.Headers); err != nil {
+		return nil, err
+	}
+	if p.ValidateResponse && p.Response != nil {
+		if err := checkHeaders("response", p.Response.Headers); err != nil {
+			return nil, err
+		}
+	}
+
 	// Bodies are the already-decoded HTTP bodies. Content-Encoding headers are preserved and
 	// passed through but never acted on: Humbug does not decompress anything.
 	req, err := p.Request.http()
@@ -159,7 +168,8 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 	}
 
 	var op *v3.Operation
-	if pi, _, tmpl := paths.FindPath(req, e.model, nil); pi != nil && tmpl != "" {
+	pi, _, tmpl := paths.FindPath(req, e.model, nil)
+	if pi != nil && tmpl != "" {
 		if op = operationFor(pi, req.Method); op != nil {
 			res.Operation = &diagnostics.Operation{Method: req.Method, Path: tmpl, OperationID: op.OperationId}
 		}
@@ -168,6 +178,11 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 	if p.ValidateRequest {
 		_, errs := e.v.ValidateHttpRequest(req)
 		n := newNormalizer(diagnostics.SideRequest, bodyBytes(p.Request.Body), p.Request.Body != nil, e.model)
+		if op != nil {
+			n.decls = requestHeaderDecls(pi, op)
+			errs = e.emptyHeaderParams(n, p.Request.Headers, errs)
+			n.warnRepeated(p.Request.Headers)
+		}
 		e.inspectNonJSON(n, op, 0, p.Request.Headers, bodyBytes(p.Request.Body))
 		res.Request = n.result(errs)
 	}
@@ -177,6 +192,10 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 		resp := p.Response.http(req2)
 		_, errs := e.v.ValidateHttpResponse(req2, resp)
 		n := newNormalizer(diagnostics.SideResponse, bodyBytes(p.Response.Body), p.Response.Body != nil, e.model)
+		if op != nil {
+			n.decls = responseHeaderDecls(op, p.Response.Status)
+			n.warnRepeated(p.Response.Headers)
+		}
 		e.inspectNonJSON(n, op, p.Response.Status, p.Response.Headers, bodyBytes(p.Response.Body))
 		res.Response = n.result(errs)
 	}

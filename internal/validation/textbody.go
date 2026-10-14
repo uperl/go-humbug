@@ -116,13 +116,21 @@ func contentFor(op *v3.Operation, request bool, status int) *orderedmap.Map[stri
 		}
 		return op.RequestBody.Content
 	}
-	if op.Responses == nil {
+	resp := responseFor(op, status)
+	if resp == nil {
 		return nil
 	}
-	code := fmt.Sprint(status)
+	return resp.Content
+}
+
+// responseFor finds the response definition for a status: exact code, then NXX, then default.
+func responseFor(op *v3.Operation, status int) *v3.Response {
+	if op == nil || op.Responses == nil {
+		return nil
+	}
 	var resp *v3.Response
 	if op.Responses.Codes != nil {
-		if r, ok := op.Responses.Codes.Get(code); ok {
+		if r, ok := op.Responses.Codes.Get(fmt.Sprint(status)); ok {
 			resp = r
 		} else {
 			wild := fmt.Sprintf("%dXX", status/100)
@@ -137,10 +145,7 @@ func contentFor(op *v3.Operation, request bool, status int) *orderedmap.Map[stri
 	if resp == nil {
 		resp = op.Responses.Default
 	}
-	if resp == nil {
-		return nil
-	}
-	return resp.Content
+	return resp
 }
 
 // matchMedia finds the content entry for a media type: exact, then type/*, then */*.

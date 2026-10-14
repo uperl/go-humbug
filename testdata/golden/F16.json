@@ -31,7 +31,7 @@
         "message": "body at /age violates schema keyword \"type\"",
         "schema": {
           "column": 7,
-          "line": 220,
+          "line": 236,
           "pointer": "/properties/age/type",
           "relative": true
         },
@@ -68,7 +68,7 @@
         "message": "body is missing required properties",
         "schema": {
           "column": 7,
-          "line": 231,
+          "line": 247,
           "pointer": "/required",
           "relative": true
         },
@@ -98,7 +98,7 @@
         "message": "body at /id violates schema keyword \"type\"",
         "schema": {
           "column": 7,
-          "line": 231,
+          "line": 247,
           "pointer": "/properties/id/type",
           "relative": true
         },

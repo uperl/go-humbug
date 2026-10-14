@@ -80,6 +80,9 @@ func TestSchemaCommands(t *testing.T) {
 		`{"id":1,"type":"initialize","params":{"protocol_version":1,"spec":{"path":"a.yaml"}}}`,
 		`{"id":"x","type":"validate","params":{"request":{"method":"GET","url":"http://h/p","headers":[["A","b"],["A","c"]],"body_base64":""},"response":{"status":200},"validate":{"response":false}}}`,
 		`{"id":3,"type":"shutdown"}`,
+		// The wire carries headers verbatim: names and values the implementation may dislike are still valid commands.
+		`{"id":5,"type":"validate","params":{"request":{"method":"GET","url":"u","headers":[["Bad Name","v"],["X-A","v\r\nInjected: 1"]]},"response":{"status":200,"headers":[["X-A","v\u0000"]]}}}`,
+		`{"id":4,"type":"validate","params":{"request":{"method":"GET","url":"u","headers":[["X-A!#$%&'*+.^_` + "`" + `|~z","a\tb"],["Set-Cookie",""]]}}}`,
 	}
 	bad := []string{
 		`{"id":1.5,"type":"shutdown"}`,
@@ -88,6 +91,8 @@ func TestSchemaCommands(t *testing.T) {
 		`{"id":1,"type":"validate","params":{"request":{"method":"GET","url":"u","headers":[["only-one"]]}}}`,
 		`{"id":1,"type":"validate","params":{"request":{"method":"GET","url":"u"},"typo":true}}`,
 		`{"id":1,"type":"frobnicate"}`,
+		`{"id":1,"type":"validate","params":{"request":{"method":"GET","url":"u","headers":[["X-A","v","extra"]]}}}`,
+		`{"id":1,"type":"validate","params":{"request":{"method":"GET","url":"u","headers":[["X-A",1]]}}}`,
 	}
 	for _, s := range ok {
 		conforms(t, proto, "command", s)

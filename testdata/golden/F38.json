@@ -25,7 +25,7 @@
         "message": "body violates schema keyword \"minLength\"",
         "schema": {
           "column": 24,
-          "line": 181,
+          "line": 182,
           "pointer": "/minLength",
           "relative": true
         },

@@ -593,5 +593,100 @@
    },
    "body": "a,b\n1,2"
   }
+ },
+ {
+  "id": "F41",
+  "desc": "required header sent empty, schema allows empty (library says missing)",
+  "expect": "valid",
+  "req": {
+   "method": "GET",
+   "url": "/hdr",
+   "headers": {
+    "X-Any": ""
+   }
+  }
+ },
+ {
+  "id": "F42",
+  "desc": "optional header sent empty, minLength forbids it (library says valid)",
+  "expect": "request-invalid",
+  "req": {
+   "method": "GET",
+   "url": "/hdr",
+   "headers": {
+    "X-Any": "v",
+    "X-Min": ""
+   }
+  }
+ },
+ {
+  "id": "F43",
+  "desc": "integer header sent empty",
+  "expect": "request-invalid",
+  "req": {
+   "method": "GET",
+   "url": "/hdr",
+   "headers": {
+    "X-Any": "v",
+    "X-Num": ""
+   }
+  }
+ },
+ {
+  "id": "F44",
+  "desc": "response header present but not an integer",
+  "expect": "response-invalid",
+  "req": {
+   "method": "GET",
+   "url": "/hdr",
+   "headers": {
+    "X-Any": "v"
+   }
+  },
+  "res": {
+   "status": 200,
+   "headers": {
+    "X-Rate-Limit": "abc"
+   }
+  }
+ },
+ {
+  "id": "F45",
+  "desc": "response header sent lower-case and invalid: diagnostic uses the declared name",
+  "expect": "response-invalid",
+  "req": {
+   "method": "GET",
+   "url": "/hdr",
+   "headers": {
+    "X-Any": "v"
+   }
+  },
+  "res": {
+   "status": 200,
+   "headers": {
+    "x-rate-limit": "abc"
+   }
+  }
+ },
+ {
+  "id": "F46",
+  "desc": "Set-Cookie response header does not match its pattern",
+  "expect": "response-invalid",
+  "req": {
+   "method": "GET",
+   "url": "/items",
+   "headers": {
+    "Cookie": "session=abcd"
+   }
+  },
+  "res": {
+   "status": 200,
+   "headers": {
+    "Content-Type": "application/json",
+    "X-Rate-Limit": "5",
+    "Set-Cookie": "other=2"
+   },
+   "body": "[]"
+  }
  }
 ]

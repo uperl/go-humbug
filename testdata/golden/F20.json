@@ -50,7 +50,7 @@
         "message": "body at /1/id violates schema keyword \"type\"",
         "schema": {
           "column": 17,
-          "line": 92,
+          "line": 93,
           "pointer": "/items/$ref/properties/id/type",
           "relative": true
         },

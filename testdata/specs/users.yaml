@@ -86,6 +86,7 @@ paths:
           description: ok
           headers:
             X-Rate-Limit: {required: true, schema: {type: integer}}
+            Set-Cookie: {required: false, schema: {type: string, pattern: '^sid='}}
           content:
             application/json:
               schema:
@@ -214,6 +215,21 @@ paths:
           application/octet-stream:
             schema: {type: string, format: binary, maxLength: 4}
       responses: {'204': {description: ok}}
+  /hdr:
+    get:
+      operationId: headerCases
+      parameters:
+        - {name: X-Any, in: header, required: true, schema: {type: string}}
+        - {name: X-Min, in: header, required: false, schema: {type: string, minLength: 3}}
+        - {name: X-Opt, in: header, required: false, schema: {type: string}}
+        - {name: X-Num, in: header, required: false, schema: {type: integer}}
+        - {name: X-Tags, in: header, required: false, schema: {type: array, items: {type: string}}}
+      responses:
+        '200':
+          description: ok
+          headers:
+            X-Rate-Limit: {required: true, schema: {type: integer}}
+            X-Note: {required: false, schema: {type: string}}
 components:
   schemas:
     NewUser:
