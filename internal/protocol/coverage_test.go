@@ -3,6 +3,7 @@ package protocol
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -199,5 +200,95 @@ func TestPathParameterStyles(t *testing.T) {
 		if c := codes(sideOf(result(t, r[i]), "request")); len(c) != 1 || c[0] != "parameter.invalid" {
 			t.Errorf("%s style: library behavior changed (%v); see the KNOWN LIBRARY LIMITATION note", name, c)
 		}
+	}
+}
+
+func diagsOf(r obj, side string) []obj {
+	var out []obj
+	for _, d := range r[side].(obj)["diagnostics"].([]any) {
+		out = append(out, d.(obj))
+	}
+	return out
+}
+
+func TestTypeDiagnosticsCarryExpectedAndActual(t *testing.T) {
+	req := postUsers(`{"name":"Ann","age":"thirty","profile":{"bio":"x"}}`)
+	d := diagsOf(result(t, run(t, init0(), validate(2, req, "", ""))[1]), "request")[0]
+	exp, _ := d["expected"].([]any)
+	if d["code"] != "schema.type" || len(exp) != 1 || exp[0] != "integer" || d["actual"] != "string" {
+		t.Errorf("type metadata: %v", d)
+	}
+	if strings.Contains(strings.ToLower(jsonText(d)), "thirty") {
+		t.Errorf("payload value leaked into a diagnostic: %v", d)
+	}
+}
+
+func jsonText(v any) string { b, _ := json.Marshal(v); return string(b) }
+
+func TestRoutingNoteIsRelatedToRequestFinding(t *testing.T) {
+	req := `{"method":"GET","url":"http://example.test/nope"}`
+	res := `{"status":200,"headers":[]}`
+	r := run(t, init0(), validate(2, req, res, ""), validate(3, req, res, `{"request":false}`))
+
+	both := result(t, r[1])
+	primary := diagsOf(both, "request")[0]
+	note := diagsOf(both, "response")[0]
+	if primary["suppressed_by"] != nil {
+		t.Errorf("primary must never be suppressed: %v", primary)
+	}
+	if note["suppressed_by"] != primary["id"] {
+		t.Errorf("response note suppressed_by %v, want %v", note["suppressed_by"], primary["id"])
+	}
+	if cb, _ := note["caused_by"].([]any); len(cb) != 1 || cb[0] != primary["id"] {
+		t.Errorf("caused_by: %v", note["caused_by"])
+	}
+	// Suppressed findings are preserved and the transaction is still not valid or complete.
+	if both["valid"] == true || both["complete"] == true || both["has_violations"] != true {
+		t.Errorf("transaction flags: %v", both)
+	}
+
+	// Response-only: no request-side primary exists, so the note must stay visible.
+	only := diagsOf(result(t, r[2]), "response")[0]
+	if only["suppressed_by"] != nil {
+		t.Errorf("note suppressed without a primary: %v", only)
+	}
+}
+
+// Both sides have composition groups; their parent/child references must resolve within
+// their own side after IDs are assigned.
+func TestCompositionOnBothSidesKeepsReferencesApart(t *testing.T) {
+	req := `{"method":"POST","url":"http://example.test/both","headers":[["Content-Type","application/json"]],"body_base64":"` + b64(`{"fax":1}`) + `"}`
+	res := `{"status":200,"headers":[["Content-Type","application/json"]],"body_base64":"` + b64(`{"pager":2}`) + `"}`
+	r := result(t, run(t, init0(), validate(2, req, res, ""))[1])
+
+	seen := map[string]string{} // id -> side
+	for _, side := range []string{"request", "response"} {
+		for _, d := range diagsOf(r, side) {
+			id := d["id"].(string)
+			if prev, dup := seen[id]; dup {
+				t.Fatalf("id %s used on both %s and %s", id, prev, side)
+			}
+			seen[id] = side
+		}
+	}
+	groups := 0
+	for _, side := range []string{"request", "response"} {
+		for _, d := range diagsOf(r, side) {
+			refs, _ := d["children"].([]any)
+			if p, ok := d["parent"].(string); ok {
+				refs = append(refs, p)
+			}
+			for _, ref := range refs {
+				if seen[ref.(string)] != side {
+					t.Errorf("%s diagnostic %v references %v from the other side", side, d["id"], ref)
+				}
+			}
+			if len(refs) > 0 {
+				groups++
+			}
+		}
+	}
+	if groups == 0 {
+		t.Errorf("expected composition groups on both sides: %v", r)
 	}
 }

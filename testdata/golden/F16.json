@@ -10,7 +10,11 @@
     "complete": true,
     "diagnostics": [
       {
+        "actual": "string",
         "code": "schema.type",
+        "expected": [
+          "integer"
+        ],
         "id": "d1",
         "instance": {
           "location": "body",
@@ -27,7 +31,7 @@
         "message": "body at /age violates schema keyword \"type\"",
         "schema": {
           "column": 7,
-          "line": 151,
+          "line": 171,
           "pointer": "/properties/age/type",
           "relative": true
         },
@@ -64,7 +68,7 @@
         "message": "body is missing required properties",
         "schema": {
           "column": 7,
-          "line": 162,
+          "line": 182,
           "pointer": "/required",
           "relative": true
         },
@@ -73,7 +77,11 @@
         "suppressed_by": null
       },
       {
+        "actual": "string",
         "code": "schema.type",
+        "expected": [
+          "integer"
+        ],
         "id": "d3",
         "instance": {
           "location": "body",
@@ -90,7 +98,7 @@
         "message": "body at /id violates schema keyword \"type\"",
         "schema": {
           "column": 7,
-          "line": 162,
+          "line": 182,
           "pointer": "/properties/id/type",
           "relative": true
         },

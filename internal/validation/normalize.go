@@ -39,7 +39,9 @@ func newNormalizer(side string, body []byte, hasBody bool, model *v3.Document) *
 	return &normalizer{who: side, body: body, hasBody: hasBody, model: model, seen: map[string]bool{}}
 }
 
-func (n *normalizer) tmpID() string { n.seq++; return "t" + strconv.Itoa(n.seq) }
+// tmpID is unique across both sides of a transaction (the side is part of the ID), because
+// parent/child and cause references are remapped together in diagnostics.AssignIDs.
+func (n *normalizer) tmpID() string { n.seq++; return n.who + "-t" + strconv.Itoa(n.seq) }
 
 func (n *normalizer) add(x d.Diagnostic) string {
 	x.ID = n.tmpID()
@@ -263,8 +265,16 @@ func (n *normalizer) leaf(f *verrors.SchemaValidationFailure, root *d.SchemaRef)
 	if kw == "required" {
 		msg = fmt.Sprintf("%s is missing required properties", describe(ptr))
 	}
-	return n.addDedup(d.Diagnostic{Code: code, Instance: inst, Message: msg,
-		Schema: &d.SchemaRef{Pointer: f.KeywordLocation, Relative: true, Line: root.Line, Column: root.Column}}, "")
+	x := d.Diagnostic{Code: code, Instance: inst, Message: msg,
+		Schema: &d.SchemaRef{Pointer: f.KeywordLocation, Relative: true, Line: root.Line, Column: root.Column}}
+	if kw == "type" {
+		// Type names only, never values. Omitted when several type constraints apply at this
+		// location (e.g. across composition branches) and the match would be a guess.
+		if want, got, ok := typeInfo(f.OriginalJsonSchemaError, f.InstancePath); ok {
+			x.Expected, x.Actual = want, got
+		}
+	}
+	return n.addDedup(x, "")
 }
 
 func (n *normalizer) bodyInstance(ptr string, missingProp bool, miss []string) *d.Instance {
@@ -459,4 +469,27 @@ func (n *normalizer) applyIssue() {
 		n.add(d.Diagnostic{Code: d.CodeIncomplete, Severity: d.SeverityInfo, Reason: "body.content_encoding_unsupported", Instance: inst, Detail: detail,
 			Message: "body has an unsupported Content-Encoding and was not inspected"})
 	}
+}
+
+// typeInfo returns the wanted and actual JSON types from the single kind.Type node at the
+// given instance location; ok is false when there is none or more than one.
+func typeInfo(e *jsonschema.ValidationError, at []string) (want []string, got string, ok bool) {
+	var found []*kind.Type
+	var walk func(*jsonschema.ValidationError)
+	walk = func(x *jsonschema.ValidationError) {
+		if x == nil {
+			return
+		}
+		if k, isType := x.ErrorKind.(*kind.Type); isType && reflect.DeepEqual(nilToEmpty(x.InstanceLocation), nilToEmpty(at)) {
+			found = append(found, k)
+		}
+		for _, c := range x.Causes {
+			walk(c)
+		}
+	}
+	walk(e)
+	if len(found) != 1 {
+		return nil, "", false
+	}
+	return found[0].Want, found[0].Got, true
 }

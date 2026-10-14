@@ -48,8 +48,38 @@ Only JSON bodies are schema-validated. Any other body — text, binary, form, XM
 A `oneOf`/`anyOf` failure is one parent (`children` list) and one diagnostic per failing branch
 keyword (`parent`, `branch` index). The library repeats the whole cause tree for every leaf; Humbug
 emits each distinct finding once. Only the first composition level is grouped. `allOf` failures are
-ordinary `schema.*` diagnostics: each failing branch keeps its own finding. Nothing is suppressed
-yet: `suppressed_by` is always `null`, and `related`/`caused_by` are unused in v1.
+ordinary `schema.*` diagnostics: each failing branch keeps its own finding.
+
+## Relationships and suppression
+
+Nothing is ever removed. A diagnostic that is a demonstrable consequence of another carries
+`caused_by` (the primary's ID) and `suppressed_by` (the primary that should replace it in normal
+presentation). Suppressed diagnostics keep every field, still appear in `diagnostics`, and the
+primary is always an error, so `has_violations` and `valid` are unaffected. A client that wants
+everything can ignore `suppressed_by`; a formatter should hide diagnostics where it is set.
+`related` is unused in v1.
+
+Only two rules exist. Sharing a path or similar wording never suppresses anything.
+
+1. **Routing.** If the operation cannot be matched, the response side's `validation.incomplete`
+   note (reason `operation.not_found` or `operation.method_not_allowed`) is caused by the request
+   side's finding of the same code. With request validation disabled there is no primary, so the
+   note is not suppressed.
+2. **Wrong type.** When a body value has the wrong type (`schema.type` with `expected` and
+   `actual`), object keywords at the same pointer (`required`, `additional_properties`,
+   `minProperties`, …) are suppressed if an object was expected, and array keywords (`items`,
+   `minItems`, …) if an array was expected, along with any finding below that pointer. Sibling
+   properties, other keywords at the pointer, and other `oneOf`/`anyOf` branches are never touched.
+
+Rule 2 is defensive. JSON Schema ignores object and array keywords on values of the wrong type, so
+pb33f v0.16.1 does not emit such cascades (probed: string, array and null where an object is
+expected, including inside `allOf` and `oneOf`). The rule is covered by unit tests, not by a
+fixture, and exists so a library change or a different validator cannot reintroduce noisy output.
+Rule 1 is exercised end to end by fixture F34.
+
+`schema.type` diagnostics carry `expected` (an array of JSON type names) and `actual` (the type
+name found, never the value). They are omitted when several type constraints apply at one location
+(for example across composition branches), because choosing one would be a guess.
 
 ## Locations
 

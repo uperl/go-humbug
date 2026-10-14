@@ -10,7 +10,11 @@
     "complete": true,
     "diagnostics": [
       {
+        "actual": "string",
         "code": "schema.type",
+        "expected": [
+          "integer"
+        ],
         "id": "d1",
         "instance": {
           "location": "body",
@@ -27,7 +31,7 @@
         "message": "body at /age violates schema keyword \"type\"",
         "schema": {
           "column": 7,
-          "line": 151,
+          "line": 171,
           "pointer": "/properties/age/type",
           "relative": true
         },

@@ -145,6 +145,26 @@ paths:
           style: simple
           schema: {type: array, items: {type: integer}}
       responses: {'204': {description: ok}}
+  /both:
+    post:
+      operationId: bothSides
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - {$ref: '#/components/schemas/Email'}
+                - {$ref: '#/components/schemas/Phone'}
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - {$ref: '#/components/schemas/Email'}
+                  - {$ref: '#/components/schemas/Phone'}
 components:
   schemas:
     NewUser:

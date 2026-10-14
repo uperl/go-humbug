@@ -29,7 +29,11 @@
         "suppressed_by": null
       },
       {
+        "actual": "string",
         "code": "schema.type",
+        "expected": [
+          "integer"
+        ],
         "id": "d2",
         "instance": {
           "location": "body",

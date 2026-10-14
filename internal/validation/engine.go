@@ -185,6 +185,7 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 		res.Response = n.result(errs)
 	}
 
+	diagnostics.Relate(sideOrNil(res.Request), sideOrNil(res.Response))
 	diagnostics.AssignIDs(res.Request, res.Response)
 	res.Complete = res.Request.Complete && res.Response.Complete
 	res.HasViolations = res.Request.HasViolations || res.Response.HasViolations
@@ -220,4 +221,12 @@ func contentType(h []Header) string {
 		}
 	}
 	return ""
+}
+
+// sideOrNil hides skipped sides from relationship rules.
+func sideOrNil(s *diagnostics.Side) *diagnostics.Side {
+	if s == nil || s.Status == diagnostics.StatusSkipped {
+		return nil
+	}
+	return s
 }

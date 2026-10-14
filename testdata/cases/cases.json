@@ -472,5 +472,41 @@
    "method": "GET",
    "url": "/list/1,x,3"
   }
+ },
+ {
+  "id": "F33",
+  "desc": "composition failures on both sides (ID remapping across sides)",
+  "expect": "both-invalid",
+  "req": {
+   "method": "POST",
+   "url": "/both",
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "body": "{\"fax\":1}"
+  },
+  "res": {
+   "status": 200,
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "body": "{\"pager\":2}"
+  }
+ },
+ {
+  "id": "F34",
+  "desc": "unmatched operation with a response: response note is caused by the request finding",
+  "expect": "request-invalid",
+  "req": {
+   "method": "GET",
+   "url": "/nope"
+  },
+  "res": {
+   "status": 200,
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "body": "{}"
+  }
  }
 ]
