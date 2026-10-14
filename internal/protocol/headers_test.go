@@ -212,3 +212,48 @@ func TestRequestHeaderDiagnosticNameIsAlwaysTheDeclaredName(t *testing.T) {
 		}
 	}
 }
+
+// ---- base64-encoded header values, end to end through Humbug ----
+
+func hdrReqRaw(entries ...string) string {
+	return `{"method":"GET","url":"http://example.test/hdr","headers":[` + strings.Join(entries, ",") + `]}`
+}
+
+func TestBase64HeaderValuesAreDecodedBeforeValidation(t *testing.T) {
+	// X-Min requires at least 3 characters. "ab" encodes to "YWI=" (4 characters): if the encoded
+	// text were validated instead of the value, this request would wrongly pass.
+	r := run(t, init0(),
+		validate(2, hdrReqRaw(`["X-Any","v"]`, `["X-Min","YWI=",true]`), "", ""),
+		validate(3, hdrReqRaw(`["X-Any","v"]`, `["X-Min","YWJj",true]`), "", ""), // "abc"
+		validate(4, hdrReqRaw(`["X-Any","v"]`, `["X-Min","YWI="]`), "", ""),      // not flagged: 4 literal characters
+		validate(5, hdrReqRaw(`["X-Any","","true"]`), "", ""),                    // flag must be a boolean
+	)
+	d := findCode(sideDiags(result(t, r[1]), "request"), "parameter.invalid")
+	if d == nil || instName(d) != "X-Min" {
+		t.Errorf("decoded value \"ab\" must violate minLength: %v", sideDiags(result(t, r[1]), "request"))
+	}
+	if res := result(t, r[2]); res["valid"] != true {
+		t.Errorf("decoded \"abc\": %v", res)
+	}
+	if res := result(t, r[3]); res["valid"] != true {
+		t.Errorf("an undecoded value is validated as written: %v", res)
+	}
+	if errCode(t, r[4]) != ErrInvalidMessage {
+		t.Errorf("non-boolean flag: %v", r[4])
+	}
+}
+
+func TestBase64CarriesBytesThatAreNotUTF8(t *testing.T) {
+	// 0xff 0xfe cannot be written in a JSON string, but base64 carries it.
+	r := result(t, run(t, init0(), validate(2, hdrReqRaw(`["X-Any","//4=",true]`), "", ""))[1])
+	if r["valid"] != true || r["complete"] != true {
+		t.Errorf("obs-text header value: %v", r)
+	}
+	// Control characters hidden inside base64 are still caught, after decoding.
+	for name, enc := range map[string]string{"CRLF": "DQo=", "NUL": "AA==", "DEL": "fw=="} {
+		out := run(t, init0(), validate(2, hdrReqRaw(`["X-Any","`+enc+`",true]`), "", ""))
+		if errCode(t, out[1]) != ErrUnsupportedInput {
+			t.Errorf("%s via base64: %v", name, out[1])
+		}
+	}
+}

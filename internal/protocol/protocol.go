@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/url"
 	"regexp"
+	"strings"
 
 	"humbug/internal/diagnostics"
 	"humbug/internal/validation"
@@ -228,16 +229,16 @@ func (s *Server) initialize(id json.RawMessage, raw json.RawMessage) reply {
 }
 
 type wireRequest struct {
-	Method     string     `json:"method"`
-	URL        string     `json:"url"`
-	Headers    [][]string `json:"headers"`
-	BodyBase64 *string    `json:"body_base64"`
+	Method     string            `json:"method"`
+	URL        string            `json:"url"`
+	Headers    []json.RawMessage `json:"headers"`
+	BodyBase64 *string           `json:"body_base64"`
 }
 
 type wireResponse struct {
-	Status     int        `json:"status"`
-	Headers    [][]string `json:"headers"`
-	BodyBase64 *string    `json:"body_base64"`
+	Status     int               `json:"status"`
+	Headers    []json.RawMessage `json:"headers"`
+	BodyBase64 *string           `json:"body_base64"`
 }
 
 func (s *Server) validate(id json.RawMessage, raw json.RawMessage) reply {
@@ -331,17 +332,50 @@ func decodeBody(s *string) (*[]byte, error) {
 }
 
 // headerPairs converts the wire's ordered header list without altering it: order, duplicates,
-// casing and values are carried exactly as sent. The only check is structural: every entry must
-// be a two-element [name, value] array (a decoder fixed to two elements would silently drop or
-// invent a value). What a name or value may contain is not the protocol's business; that is up to
-// the implementation.
-func headerPairs(side string, h [][]string) ([]validation.Header, string) {
+// casing and values are carried exactly as sent. Each entry is [name, value] or
+// [name, value, base64], where base64 is an optional boolean (default false); when true, value is
+// the standard base64 encoding of the header value's bytes, which lets any bytes (including
+// non-UTF-8) travel in JSON. Names are never encoded.
+//
+// Checks are structural only, because anything looser would silently change what was sent (a
+// decoder fixed to two elements drops a third; decoding null into a string invents ""). What a
+// name or value may contain is not the protocol's business; that is up to the implementation.
+func headerPairs(side string, h []json.RawMessage) ([]validation.Header, string) {
 	out := make([]validation.Header, len(h))
-	for i, p := range h {
-		if len(p) != 2 {
-			return nil, fmt.Sprintf("%s.headers[%d]: must be a [name, value] pair", side, i)
+	for i, raw := range h {
+		bad := func(why string) ([]validation.Header, string) {
+			return nil, fmt.Sprintf("%s.headers[%d]: %s", side, i, why)
 		}
-		out[i] = validation.Header{p[0], p[1]}
+		var parts []json.RawMessage
+		if err := json.Unmarshal(raw, &parts); err != nil || len(parts) < 2 || len(parts) > 3 {
+			return bad("must be [name, value] or [name, value, base64]")
+		}
+		var name, value string
+		if !jsonString(parts[0], &name) || !jsonString(parts[1], &value) {
+			return bad("name and value must be strings")
+		}
+		if len(parts) == 3 {
+			switch string(bytes.TrimSpace(parts[2])) {
+			case "false":
+			case "true":
+				// The decoder skips CR and LF; the wire format is strict standard base64.
+				b, err := base64.StdEncoding.DecodeString(value)
+				if err != nil || strings.ContainsAny(value, "\r\n") {
+					return bad("value is not valid base64")
+				}
+				value = string(b)
+			default:
+				return bad("base64 must be a boolean")
+			}
+		}
+		out[i] = validation.Header{name, value}
 	}
 	return out, ""
+}
+
+// jsonString decodes a JSON string, refusing null and every other type (which json.Unmarshal
+// would otherwise quietly turn into "").
+func jsonString(raw json.RawMessage, dst *string) bool {
+	raw = bytes.TrimSpace(raw)
+	return len(raw) > 0 && raw[0] == '"' && json.Unmarshal(raw, dst) == nil
 }

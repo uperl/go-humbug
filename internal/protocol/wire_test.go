@@ -127,3 +127,87 @@ func TestWireRejectsMalformedHeaderPairsInsteadOfAlteringThem(t *testing.T) {
 		t.Errorf("response pair: %v", replies[0])
 	}
 }
+
+// ---- base64 header values: [name, value, base64?] ----
+
+// rawReq builds a validate command whose request headers are the given raw JSON entries.
+func rawReq(entries ...string) string {
+	return `{"id":2,"type":"validate","params":{"request":{"method":"GET","url":"http://example.test/x","headers":[` + strings.Join(entries, ",") + `]}}}`
+}
+
+func TestWireBase64HeaderValues(t *testing.T) {
+	c, replies := serveCapture(t, rawReq(
+		`["X-Decoded","Zm9v",true]`,         // base64 of "foo"
+		`["X-Explicit-False","Zm9v",false]`, // not decoded
+		`["X-Default","Zm9v"]`,              // default is false: not decoded
+		`["X-Binary","//4=",true]`,          // 0xff 0xfe: not valid UTF-8
+		`["X-Empty","",true]`,               // base64 of the empty value
+		`["X-Control","DQo=",true]`,         // CR LF: delivered; judging it is the implementation's job
+		`["Zm9v","dg==",true]`,              // names are never encoded
+		`["X-Decoded","YmFy",true]`,         // a duplicate name stays a separate entry, in order
+	))
+	if replies[0]["type"] != "result" {
+		t.Fatalf("reply: %v", replies[0])
+	}
+	want := []validation.Header{
+		{"X-Decoded", "foo"},
+		{"X-Explicit-False", "Zm9v"},
+		{"X-Default", "Zm9v"},
+		{"X-Binary", "\xff\xfe"},
+		{"X-Empty", ""},
+		{"X-Control", "\r\n"},
+		{"Zm9v", "v"},
+		{"X-Decoded", "bar"},
+	}
+	if len(c.got) != 1 || !reflect.DeepEqual(c.got[0].Request.Headers, want) {
+		t.Errorf("headers\n got %q\nwant %q", c.got[0].Request.Headers, want)
+	}
+}
+
+func TestWireBase64AppliesToResponseHeadersToo(t *testing.T) {
+	line := `{"id":2,"type":"validate","params":{"request":{"method":"GET","url":"http://example.test/x"},"response":{"status":200,"headers":[["X-Binary","//4=",true],["X-Text","hi"]]}}}`
+	c, _ := serveCapture(t, line)
+	want := []validation.Header{{"X-Binary", "\xff\xfe"}, {"X-Text", "hi"}}
+	if len(c.got) != 1 || c.got[0].Response == nil || !reflect.DeepEqual(c.got[0].Response.Headers, want) {
+		t.Errorf("response headers: %+v", c.got)
+	}
+}
+
+func TestWireRejectsMalformedHeaderEntriesInsteadOfAlteringThem(t *testing.T) {
+	bad := map[string]string{
+		"base64 as string":      `["X-A","v","true"]`,
+		"base64 as number":      `["X-A","v",1]`,
+		"base64 as null":        `["X-A","v",null]`,
+		"four elements":         `["X-A","v",true,"extra"]`,
+		"invalid base64":        `["X-A","!!!",true]`,
+		"unpadded base64":       `["X-A","Zm9",true]`,
+		"base64 with newline":   `["X-A","Zm9v\n",true]`,
+		"base64 with CR":        `["X-A","Zm9v\r",true]`,
+		"base64 with space":     `["X-A","Zm 9v",true]`,
+		"url-safe base64":       `["X-A","__4=",true]`,
+		"null value":            `["X-A",null]`,
+		"null name":             `[null,"v"]`,
+		"numeric name":          `[1,"v"]`,
+		"boolean value":         `["X-A",true]`,
+		"object entry":          `{"name":"X-A","value":"v"}`,
+		"string entry":          `"X-A: v"`,
+		"null entry":            `null`,
+		"empty entry":           `[]`,
+		"one element":           `["X-A"]`,
+		"non-boolean flag only": `["X-A","v","yes"]`,
+	}
+	for name, entry := range bad {
+		t.Run(name, func(t *testing.T) {
+			c, replies := serveCapture(t, rawReq(entry))
+			if errCode(t, replies[0]) != ErrInvalidMessage {
+				t.Errorf("reply: %v", replies[0])
+			}
+			if len(c.got) != 0 {
+				t.Errorf("must not reach the validator: %+v", c.got)
+			}
+			if msg := replies[0]["error"].(obj)["message"].(string); strings.Contains(msg, "!!!") {
+				t.Errorf("error echoes content: %q", msg)
+			}
+		})
+	}
+}

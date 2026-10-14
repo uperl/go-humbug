@@ -43,10 +43,14 @@
     },
     "headers": {
       "type": "array",
-      "description": "The message's header lines exactly as captured, as an ordered list of [name, value] pairs. Order, duplicates, casing and values are carried verbatim; the protocol does not normalize, combine, deduplicate or validate them. What an implementation does with unusual headers is implementation behavior.",
+      "description": "The message's header lines exactly as captured, as an ordered list. Each entry is [name, value] or [name, value, base64]. Order, duplicates, casing and values are carried verbatim; the protocol does not normalize, combine, deduplicate or validate them.",
       "items": {
         "type": "array",
-        "prefixItems": [{"type": "string"}, {"type": "string"}],
+        "prefixItems": [
+          {"type": "string", "description": "Header name, as captured. Never encoded."},
+          {"type": "string", "description": "Header value, as captured; or its standard base64 encoding when the third element is true."},
+          {"type": "boolean", "default": false, "description": "Optional. When true, the value is the standard base64 (padded) encoding of the value's bytes, so any bytes, including non-UTF-8, can be carried. Default false."}
+        ],
         "items": false,
         "minItems": 2
       }

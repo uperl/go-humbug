@@ -59,8 +59,8 @@ header pairs, and the error/result split are as in the draft.
 ### The wire contract (any implementation)
 
 `headers` on a request or response is the message's header lines **exactly as captured**: an
-ordered list of `[name, value]` string pairs. The protocol guarantees that this list reaches the
-implementation verbatim:
+ordered list of entries, each `[name, value]` or `[name, value, base64]`. The protocol guarantees
+that this list reaches the implementation verbatim:
 
 - order is preserved, including the relative order of different names;
 - duplicates stay separate entries, and lines are never combined or split (a comma is just a
@@ -69,25 +69,35 @@ implementation verbatim:
   altered;
 - nothing is validated: the protocol does not care what a name or value contains.
 
-The only check is structural. Every entry must be a two-element array of strings; anything else
-(`["X-A"]`, `["X-A","v","extra"]`, an object, a number) is `protocol.invalid_message`, because
-silently dropping or inventing an element would change what was sent. `headers` may be absent or
-empty (both mean no headers).
+**Carrying any bytes.** The optional third element, `base64`, is a boolean that defaults to
+`false`. When `true`, `value` is the standard base64 encoding (RFC 4648 §4, with padding, no line
+breaks) of the header value's bytes, and the implementation decodes it to get the value. This lets
+bytes that are not valid UTF-8 (obs-text) or that JSON cannot represent travel unchanged. Names are
+never encoded. `["X-Bin","//4=",true]` is the value `0xFF 0xFE`; `["X-A","//4="]` and
+`["X-A","//4=",false]` are the literal text `//4=`. A client may use it for any value, not only
+those that need it.
+
+The only checks are structural. Every entry must be an array of two or three elements; name and
+value must be strings (not `null`), and the third element, if present, must be a boolean. When
+`base64` is true the value must be valid base64. Anything else (`["X-A"]`,
+`["X-A","v","true"]`, `["X-A","v",true,"extra"]`, `["X-A",null]`, an object, a number) is
+`protocol.invalid_message`, because silently dropping, truncating or inventing an element would
+change what was sent. `headers` may be absent or empty (both mean no headers).
 
 This contract is what lets another implementation replace Humbug behind the same protocol: it
 receives the original header lines and is free to interpret them differently. It is pinned by
 `wire_test.go`, which hands the protocol layer a stand-in implementation and asserts exact
 equality, including order, for unusual input.
 
-Limitation: header values are JSON strings, so bytes that are not valid UTF-8 (obs-text) cannot be
-carried. How to represent them is undecided.
-
 ### What Humbug does with headers (implementation behavior)
 
 These rules belong to Humbug, not to the protocol, and another implementation may differ:
 
+- **Base64 values are decoded before anything else.** Humbug supports `base64: true`: every rule
+  below applies to the decoded bytes, so a value hidden in base64 is judged exactly like the same
+  value sent as text. Non-UTF-8 bytes are accepted; they are never echoed.
 - **Headers that cannot exist in HTTP are an input error.** A name that is not an RFC 9110 token,
-  or a value with a control character other than tab (CR, LF, NUL, DEL, ...), is rejected with
+  or a value (after decoding) with a control character other than tab (CR, LF, NUL, DEL, ...), is rejected with
   `validator.unsupported_input` (an execution failure, not a contract finding). The message never
   repeats the content. Response headers are only judged when the response is being validated.
 - **Names are case-insensitive.** Diagnostics always carry the name as declared in the
