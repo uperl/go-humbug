@@ -250,6 +250,15 @@ described under "Limits".
 
 ## Known library limitations (pinned pb33f v0.16.1)
 
+Everything in this section describes the Humbug implementation running on the pinned library. **None
+of it is part of the wire protocol.** The protocol carries the request's effective absolute URL
+(including its query string), its header lines (including `Cookie`) and its decoded bodies, all
+verbatim, and says nothing about how parameters are decoded or validated. An implementation is
+expected to validate parameters as OpenAPI defines them (every style, `explode`, and every schema
+keyword), and another implementation may do that fully where this one cannot. A limitation listed
+here is a gap in this implementation, to be closed here or by a library fix, never a rule clients
+should adapt to.
+
 - **Label and matrix path styles.** A primitive path parameter with `style: label` (`.5`) or
   `style: matrix` (`;id=5`) is validated with the prefix still attached, so a valid request is
   reported `parameter.invalid`. Humbug does not mask this. Fixtures F27 and F29 and
@@ -258,7 +267,9 @@ described under "Limits".
   (`.1.2.3`, `;ids=1,2,3`, `;ids=1;ids=2;ids=3`) are reported `parameter.invalid`, and a value that
   is not label-encoded (`1,2,3`) is accepted. See "Array and object parameters" below.
 - **Array and object parameters are checked loosely** (probed with the pinned version; scalar
-  parameters are fine). Humbug does not mask or replace any of this. Each item below is pinned by
+  parameters are fine). Humbug does not mask or replace any of this: decoding array and object
+  parameters itself, to close these gaps, is deliberately **not part of the MVP** (decided), and can
+  be revisited if a consumer's specification needs it. Each item below is pinned by
   `TestParameterLibraryBehavior` (over 150 cases on `testdata/specs/params.yaml`, each recording what
   OpenAPI says and what the library does), which fails when an upgrade changes any of them, in
   either direction. Only missed violations unless noted.
