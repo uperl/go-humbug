@@ -257,6 +257,18 @@ described under "Limits".
   (`/list/1,2,3`) work.
 - **Trailing and doubled slashes are routed** to the path without them (see "Routing", where this
   is listed as a deviation from what the protocol expects).
+- **Custom HTTP methods are not supported (deferred, decided).** OpenAPI 3.1 cannot declare them:
+  its Path Item fixes `get`, `put`, `post`, `delete`, `options`, `head`, `patch` and `trace`. A
+  request with any other method (`PURGE`, `QUERY`, `PROPFIND`, ...) is
+  `operation.method_not_allowed`, which is correct for a 3.1 specification. OpenAPI 3.2 can declare
+  them (`additionalOperations`, plus a fixed `query`), and the pinned library parses both, but it
+  cannot *validate* them: a document that uses `additionalOperations` is routed, and then every
+  request for that operation is reported as `validation.unclassified` (an error, even when the
+  request is valid), because the library finds no operation for the method. Supporting custom
+  methods would need either 3.2 support plus a workaround for the library, or a library fix.
+  Related library behavior: standard methods match case-sensitively (`get` is not `GET`) but custom
+  methods in `additionalOperations` match case-insensitively, and `HEAD` is routed to the `GET`
+  operation when `HEAD` is not declared.
 - **Schema file names.** Cross-file `$ref` schema locations give the line and column in the
   referenced file, but the library does not expose which file, so `schema.uri` is omitted.
 - **Remote references** are disabled; a spec that needs one fails with `spec.invalid`, and a test
