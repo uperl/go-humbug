@@ -16,7 +16,8 @@ import (
 	"github.com/pb33f/libopenapi"
 	validator "github.com/pb33f/libopenapi-validator"
 	"github.com/pb33f/libopenapi-validator/config"
-	"github.com/pb33f/libopenapi-validator/paths"
+	"github.com/pb33f/libopenapi-validator/radix"
+	"github.com/pb33f/libopenapi-validator/router"
 	"github.com/pb33f/libopenapi-validator/schema_validation"
 	"github.com/pb33f/libopenapi/datamodel"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
@@ -41,6 +42,7 @@ type SpecInfo struct {
 type Engine struct {
 	v     validator.Validator
 	sv    schema_validation.SchemaValidator
+	rt    router.Router // routes exactly as the validator does; see newRouter
 	model *v3.Document
 	Info  SpecInfo
 }
@@ -77,7 +79,7 @@ func Load(path string) (*Engine, error) {
 	if len(verrs) > 0 {
 		return nil, &SpecError{errors.Join(verrs...)}
 	}
-	e := &Engine{v: v, sv: schema_validation.NewSchemaValidatorWithLogger(logger), model: &model.Model}
+	e := &Engine{v: v, sv: schema_validation.NewSchemaValidatorWithLogger(logger), rt: newRouter(&model.Model), model: &model.Model}
 	e.Info.OpenAPIVersion = doc.GetSpecInfo().Version
 	if model.Model.Info != nil {
 		e.Info.Title = model.Model.Info.Title
@@ -168,10 +170,12 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 	}
 
 	var op *v3.Operation
-	pi, _, tmpl := paths.FindPath(req, e.model, nil)
-	if pi != nil && tmpl != "" {
-		if op = operationFor(pi, req.Method); op != nil {
-			res.Operation = &diagnostics.Operation{Method: req.Method, Path: tmpl, OperationID: op.OperationId}
+	var pi *v3.PathItem
+	if route, _ := e.rt.FindRoute(req); route != nil {
+		// A method mismatch returns a partial route with a nil Operation.
+		pi, op = route.PathItem, route.Operation
+		if op != nil {
+			res.Operation = &diagnostics.Operation{Method: req.Method, Path: route.Path, OperationID: op.OperationId}
 		}
 	}
 
@@ -231,4 +235,14 @@ func sideOrNil(s *diagnostics.Side) *diagnostics.Side {
 		return nil
 	}
 	return s
+}
+
+// newRouter builds the router the validator itself uses (see validator.NewValidatorFromV3Model:
+// a radix path tree, and path-only matching because strict server matching is off). The library
+// does not expose its router, and routing the request a second way (paths.FindPath with no
+// options) disagrees with it: it rejects `/users/` or `//users`, which the validator routes to
+// `/users`, so a validated request would be reported with no operation. TestRoutingMatchesTheValidator
+// guards against the two drifting apart.
+func newRouter(model *v3.Document) router.Router {
+	return router.NewRouter(model, router.WithPathLookup(radix.BuildPathTree(model)), router.WithPathOnlyMatching())
 }

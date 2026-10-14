@@ -43,6 +43,23 @@ header pairs, and the error/result split are as in the draft.
 - Nothing is printed until a command arrives. Remote `$ref` fetching is disabled in the library
   configuration (not separately tested).
 
+## Routing
+
+A request is matched to an operation by its URL path alone, exactly as the validator matches it
+(Humbug builds the same router; a test compares the two across many URL shapes, so the `operation`
+in a result is present exactly when the request was routed and validated).
+
+- **Host, scheme and port are not checked.** `servers` in the specification is not used to reject a
+  request sent to a different host. (The library has a strict server-matching option; it is off.)
+- **A server base path is optional.** With `servers: [https://api.example.test/v1]`, both
+  `/v1/users` and `/users` match `/users`.
+- **Trailing and doubled slashes are tolerated.** `/users/`, `//users` and `/users//` route to
+  `/users`. This is the library's leniency; OpenAPI itself treats paths literally.
+- **Case matters.** `/Users` does not match `/users` (`operation.not_found`).
+- **A fragment is part of the path.** `/users#frag` is not routed. Fragments are never sent over
+  HTTP, so clients should not include one in the effective URL.
+- A matched path with no operation for the method is `operation.method_not_allowed`.
+
 ## Behavior notes
 
 - Messages are generated from structure and never echo payload values.
@@ -156,7 +173,9 @@ well under a second.
 - Non-JSON bodies are checked only when their schema is a string (see `diagnostics.md`, "Non-JSON
   bodies"). Form, XML and multipart bodies under object schemas stay `incomplete`; parsing them is
   deferred. Format validity (for example VCL syntax) is never checked.
-- Untested: security requirements, and path styles other than simple, label and matrix.
+- **Security requirements are deferred (decided).** `security.*` codes are in the taxonomy but are
+  not produced, and security schemes are not checked.
+- Untested: path styles other than simple, label and matrix.
 - Repeated lines of an ordinary single-valued request header: the library validates only the first
   line (response headers: every line). Humbug reports the repetition (`header.repeated`, a
   warning) but does not validate the later request lines individually.

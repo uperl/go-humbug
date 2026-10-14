@@ -428,3 +428,56 @@ func TestBinaryLengthCountsBytesTextCountsCharacters(t *testing.T) {
 		t.Errorf("text counts characters: %v", res)
 	}
 }
+
+// The operation in the result comes from the same routing the validator uses, so a request the
+// validator routes (and validates) is never reported without an operation.
+func TestOperationIsReportedForEveryRoutedPath(t *testing.T) {
+	bad := `{"name":"Ann","age":"x","profile":{"bio":"b"}}`
+	hd := `[["Content-Type","application/json"],["X-Request-Id","abc"]]`
+	post := func(path string) string {
+		return `{"method":"POST","url":"http://example.test` + path + `","headers":` + hd + `,"body_base64":"` + b64(bad) + `"}`
+	}
+	paths := []string{"/users", "/users/", "//users", "/users//", "/users/?x=1"}
+	var lines []string
+	for i, p := range paths {
+		lines = append(lines, validate(2+i, post(p), "", ""))
+	}
+	r := run(t, append([]string{init0()}, lines...)...)
+	for i, p := range paths {
+		res := result(t, r[1+i])
+		op, _ := res["operation"].(obj)
+		if op == nil || op["path"] != "/users" || op["operation_id"] != "createUser" {
+			t.Errorf("%s: operation %v (the request was validated, so it must be reported)", p, res["operation"])
+		}
+		if c := codes(sideOf(res, "request")); len(c) != 1 || c[0] != "schema.type" {
+			t.Errorf("%s: %v", p, c)
+		}
+	}
+}
+
+// A body sent where the operation declares no content has nothing to be checked against, so it
+// is not "uninspected": the side stays complete.
+func TestUndeclaredBodyWithoutContentTypeIsNotIncomplete(t *testing.T) {
+	req := `{"method":"GET","url":"http://example.test/users/7","headers":[],"body_base64":"` + b64("junk") + `"}`
+	res := `{"status":204,"headers":[],"body_base64":"` + b64("junk") + `"}`
+	postContacts := `{"method":"POST","url":"http://example.test/contacts","headers":[["Content-Type","application/json"]],"body_base64":"` + b64(`{"email":"a@b"}`) + `"}`
+	r := run(t, init0(),
+		validate(2, req, "", ""),
+		validate(3, postContacts, res, `{"request":false}`), // 204 declares no content
+	)
+	for i, label := range map[int]string{1: "request", 2: "response"} {
+		got := result(t, r[i])
+		if got["complete"] != true || got["valid"] != true {
+			t.Errorf("%s: an undeclared body is not 'uninspected': %v", label, got)
+		}
+	}
+}
+
+// Declared content with no usable Content-Type is still never reported valid.
+func TestDeclaredContentWithoutContentTypeStaysIncomplete(t *testing.T) {
+	req := `{"method":"POST","url":"http://example.test/notes","headers":[],"body_base64":"` + b64("hello") + `"}`
+	r := result(t, run(t, init0(), validate(2, req, "", ""))[1])
+	if r["valid"] == true || r["complete"] == true {
+		t.Errorf("declared content, no Content-Type: %v", r)
+	}
+}

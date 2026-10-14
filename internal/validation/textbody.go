@@ -42,12 +42,15 @@ func (e *Engine) inspectNonJSON(n *normalizer, op *v3.Operation, status int, hea
 	if !n.hasBody || isJSON(ct) || op == nil {
 		return
 	}
+	content := contentFor(op, n.who == d.SideRequest, status)
+	if content == nil || content.Len() == 0 {
+		return // the operation declares no content for this message: there is nothing to check it against
+	}
 	mt, params, err := mime.ParseMediaType(ct)
 	if err != nil {
-		n.noteUninspected(ct) // no usable Content-Type: cannot tell what the body is
+		n.noteUninspected(ct) // content is declared but there is no usable Content-Type
 		return
 	}
-	content := contentFor(op, n.who == d.SideRequest, status)
 	media := matchMedia(content, mt)
 	if media == nil {
 		return // not declared: the library reports body.media_type
