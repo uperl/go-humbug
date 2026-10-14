@@ -246,6 +246,7 @@ func (s *Server) initialize(id json.RawMessage, raw json.RawMessage) reply {
 		"protocol_version": Version,
 		"specification":    map[string]string{"openapi_version": info.OpenAPIVersion, "title": info.Title},
 		"limits":           s.limits(),
+		"implementation":   implementation(),
 	}}
 }
 

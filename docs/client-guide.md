@@ -73,6 +73,13 @@ when you can:
   findings have a `pointer` but no span.
 - **Unknown codes happen.** Handle a code you do not know by its `severity`, not by failing. Codes are listed in `diagnostics.md`.
 
+## Staying compatible
+
+Ignore fields you do not know. Handle a code you do not know by its `severity`. The reported findings
+for a given input can change between releases (`versioning.md`), so do not pin whole replies. The
+`implementation` block in the `initialize` result names the build and library versions; log it, do
+not branch on it.
+
 ## Checklist
 
 1. Headers as an ordered list of entries, repeats and order kept, bytes base64.

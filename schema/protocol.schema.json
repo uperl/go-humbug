@@ -131,6 +131,17 @@
           "description": "The resource limits in effect (an implementation may report its own set). See docs/protocol.md.",
           "additionalProperties": {"type": "integer", "minimum": 1}
         },
+        "implementation": {
+          "type": "object",
+          "description": "Which build answered, for support and bug reports. Optional; a client must not branch on it. See docs/versioning.md.",
+          "required": ["name", "version"],
+          "additionalProperties": false,
+          "properties": {
+            "name": {"type": "string"},
+            "version": {"type": "string", "description": "The release, or \"(devel)\" for a build from a working tree"},
+            "libraries": {"type": "object", "description": "Exact versions of the libraries that decide which findings are reported", "additionalProperties": {"type": "string"}}
+          }
+        },
         "specification": {
           "type": "object",
           "required": ["openapi_version", "title"],
