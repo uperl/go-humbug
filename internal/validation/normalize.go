@@ -32,6 +32,7 @@ type normalizer struct {
 	diags     []d.Diagnostic
 	seen      map[string]bool
 	incomplet bool
+	issue     *bodyIssue // Content-Encoding problem; body findings are not meaningful
 }
 
 func newNormalizer(side string, body []byte, hasBody bool, model *v3.Document) *normalizer {
@@ -66,6 +67,7 @@ func (n *normalizer) result(errs []*verrors.ValidationError) *d.Side {
 	for _, e := range errs {
 		n.one(e)
 	}
+	n.applyIssue()
 	s := &d.Side{Diagnostics: n.diags}
 	if s.Diagnostics == nil {
 		s.Diagnostics = []d.Diagnostic{}
@@ -408,7 +410,7 @@ func nilToEmpty(s []string) []string {
 // JSON media type: the library only schema-validates JSON bodies, so any other
 // content has not been checked and must never be reported as conforming.
 func (n *normalizer) noteUninspected(mediaType string) {
-	if !n.hasBody || isJSON(mediaType) {
+	if !n.hasBody || n.issue != nil || isJSON(mediaType) {
 		return
 	}
 	n.incomplet = true
@@ -427,4 +429,34 @@ func isJSON(contentType string) bool {
 		return false
 	}
 	return mt == "application/json" || strings.HasSuffix(mt, "+json")
+}
+
+// applyIssue handles a Content-Encoding problem. The library saw the undecoded
+// bytes, so its body findings are discarded in favor of one explicit finding.
+func (n *normalizer) applyIssue() {
+	if n.issue == nil {
+		return
+	}
+	kept := n.diags[:0]
+	for _, x := range n.diags {
+		if x.Instance == nil || x.Instance.Location != "body" {
+			kept = append(kept, x)
+		}
+	}
+	n.diags = kept
+	detail := map[string]string{"content_encoding": n.issue.encoding}
+	inst := &d.Instance{Location: "body"}
+	switch n.issue.kind {
+	case issueCorrupt:
+		n.add(d.Diagnostic{Code: d.CodeBodyDecode, Instance: inst, Detail: detail,
+			Message: "body could not be decoded with its declared Content-Encoding"})
+	case issueTooLarge:
+		n.incomplet = true
+		n.add(d.Diagnostic{Code: d.CodeIncomplete, Severity: d.SeverityInfo, Reason: "body.too_large", Instance: inst, Detail: detail,
+			Message: "decoded body exceeds the size limit and was not inspected"})
+	default:
+		n.incomplet = true
+		n.add(d.Diagnostic{Code: d.CodeIncomplete, Severity: d.SeverityInfo, Reason: "body.content_encoding_unsupported", Instance: inst, Detail: detail,
+			Message: "body has an unsupported Content-Encoding and was not inspected"})
+	}
 }

@@ -23,7 +23,7 @@ diagnostics (`validation.incomplete`) explain why a side is `complete: false` an
 | `parameter.required` | Required query/header/path/cookie parameter missing | `location`, `name` |
 | `parameter.invalid` | Parameter present but fails its schema (including array items) | `location`, `name` |
 | `body.required` | Operation requires a body and none was supplied (absent, not empty) | `body` |
-| `body.decode` | Body present but not decodable (malformed JSON, or empty) | `body`, zero-width `span` at the parse error |
+| `body.decode` | Body present but not decodable (malformed JSON, empty, or corrupt gzip) | `body`, zero-width `span` at the parse error |
 | `body.media_type` | Content-Type not defined for the operation | `header` `Content-Type` |
 | `response.status` | Status code not defined for the operation | `status` |
 | `response.header.required` | Required response header missing | `header`, `name` |
@@ -36,7 +36,8 @@ diagnostics (`validation.incomplete`) explain why a side is `complete: false` an
 | `validation.unclassified` | The library reported something Humbug does not classify; original `validation_type`/`validation_sub_type` in `detail` | none |
 
 `validation.incomplete` reasons: `body.not_inspected` (a body is present but its media type is not
-JSON, so no schema check ran; `detail.media_type` has the type), `operation.not_found` and
+JSON, so no schema check ran; `detail.media_type` has the type), `body.content_encoding_unsupported`
+and `body.too_large` (see `protocol.md`, `detail.content_encoding`), `operation.not_found` and
 `operation.method_not_allowed` (response side could not be routed).
 
 Only JSON bodies are schema-validated. Any other body — text, binary, form, XML — makes the side

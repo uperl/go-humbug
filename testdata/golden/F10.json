@@ -37,7 +37,7 @@
         "message": "body is missing required properties",
         "schema": {
           "column": 7,
-          "line": 140,
+          "line": 162,
           "pointer": "/required",
           "relative": true
         },
@@ -63,7 +63,7 @@
         "message": "body at /id violates schema keyword \"type\"",
         "schema": {
           "column": 7,
-          "line": 140,
+          "line": 162,
           "pointer": "/properties/id/type",
           "relative": true
         },

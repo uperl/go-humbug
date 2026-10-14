@@ -1,0 +1,37 @@
+{
+  "complete": true,
+  "has_violations": true,
+  "operation": {
+    "method": "GET",
+    "operation_id": "getList",
+    "path": "/list/{ids}"
+  },
+  "request": {
+    "complete": true,
+    "diagnostics": [
+      {
+        "code": "parameter.invalid",
+        "id": "d1",
+        "instance": {
+          "location": "path",
+          "name": "ids"
+        },
+        "message": "path parameter \"ids\" is invalid",
+        "severity": "error",
+        "side": "request",
+        "suppressed_by": null
+      }
+    ],
+    "has_violations": true,
+    "status": "invalid",
+    "valid": false
+  },
+  "response": {
+    "complete": true,
+    "diagnostics": [],
+    "has_violations": false,
+    "status": "skipped",
+    "valid": false
+  },
+  "valid": false
+}

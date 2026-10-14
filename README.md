@@ -39,4 +39,4 @@ every reply against them. `docs/protocol.md` and `docs/diagnostics.md` describe 
 ## Known gaps
 
 See `docs/protocol.md` "Known gaps". Notably: only JSON bodies are schema-validated (others are
-reported `incomplete`), and cross-file schema locations and large/gzip bodies are untested.
+reported `incomplete`), and pb33f mis-handles label/matrix path parameters (pinned by a test).

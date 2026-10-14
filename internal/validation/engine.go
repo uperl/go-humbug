@@ -149,7 +149,12 @@ func (e *InputError) Unwrap() error { return e.Err }
 func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 	res := &diagnostics.Result{Request: diagnostics.Skipped(), Response: diagnostics.Skipped()}
 
-	req, err := p.Request.http()
+	// Decode Content-Encoding first; everything below sees decoded bodies.
+	reqMsg := p.Request
+	var reqIssue, resIssue *bodyIssue
+	reqMsg.Body, reqIssue = resolveBody(p.Request.Headers, p.Request.Body)
+
+	req, err := reqMsg.http()
 	if err != nil {
 		return nil, &InputError{err}
 	}
@@ -162,24 +167,20 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 
 	if p.ValidateRequest {
 		_, errs := e.v.ValidateHttpRequest(req)
-		var body []byte
-		if p.Request.Body != nil {
-			body = *p.Request.Body
-		}
-		n := newNormalizer(diagnostics.SideRequest, body, p.Request.Body != nil, e.model)
+		n := newNormalizer(diagnostics.SideRequest, bodyBytes(reqMsg.Body), reqMsg.Body != nil, e.model)
+		n.issue = reqIssue
 		n.noteUninspected(contentType(p.Request.Headers))
 		res.Request = n.result(errs)
 	}
 
 	if p.ValidateResponse && p.Response != nil {
-		req2, _ := p.Request.http() // fresh request: validators may consume the body
-		resp := p.Response.http(req2)
+		resMsg := *p.Response
+		resMsg.Body, resIssue = resolveBody(p.Response.Headers, p.Response.Body)
+		req2, _ := reqMsg.http() // fresh request: validators may consume the body
+		resp := resMsg.http(req2)
 		_, errs := e.v.ValidateHttpResponse(req2, resp)
-		var body []byte
-		if p.Response.Body != nil {
-			body = *p.Response.Body
-		}
-		n := newNormalizer(diagnostics.SideResponse, body, p.Response.Body != nil, e.model)
+		n := newNormalizer(diagnostics.SideResponse, bodyBytes(resMsg.Body), resMsg.Body != nil, e.model)
+		n.issue = resIssue
 		n.noteUninspected(contentType(p.Response.Headers))
 		res.Response = n.result(errs)
 	}
@@ -189,6 +190,13 @@ func (e *Engine) Validate(p Params) (*diagnostics.Result, error) {
 	res.HasViolations = res.Request.HasViolations || res.Response.HasViolations
 	res.Valid = res.Complete && !res.HasViolations
 	return res, nil
+}
+
+func bodyBytes(b *[]byte) []byte {
+	if b == nil {
+		return nil
+	}
+	return *b
 }
 
 func operationID(pi *v3.PathItem, method string) (string, bool) {

@@ -416,5 +416,61 @@
    },
    "body": "{\"name\":\"Zoë\",\"age\":\"x\",\"profile\":{\"bio\":\"é\"},\"a/b\":1}"
   }
+ },
+ {
+  "id": "F27",
+  "desc": "label-style path param, valid",
+  "expect": "request-invalid",
+  "req": {
+   "method": "GET",
+   "url": "/label/.5"
+  },
+  "note": "KNOWN LIBRARY LIMITATION: pb33f v0.16.1 does not strip the label/matrix prefix, so this valid request is reported invalid."
+ },
+ {
+  "id": "F28",
+  "desc": "label-style path param, wrong type",
+  "expect": "request-invalid",
+  "req": {
+   "method": "GET",
+   "url": "/label/.x"
+  }
+ },
+ {
+  "id": "F29",
+  "desc": "matrix-style path param, valid",
+  "expect": "request-invalid",
+  "req": {
+   "method": "GET",
+   "url": "/matrix/;id=5"
+  },
+  "note": "KNOWN LIBRARY LIMITATION: pb33f v0.16.1 does not strip the label/matrix prefix, so this valid request is reported invalid."
+ },
+ {
+  "id": "F30",
+  "desc": "matrix-style path param, wrong type",
+  "expect": "request-invalid",
+  "req": {
+   "method": "GET",
+   "url": "/matrix/;id=x"
+  }
+ },
+ {
+  "id": "F31",
+  "desc": "simple array path param, valid",
+  "expect": "valid",
+  "req": {
+   "method": "GET",
+   "url": "/list/1,2,3"
+  }
+ },
+ {
+  "id": "F32",
+  "desc": "simple array path param, bad item",
+  "expect": "request-invalid",
+  "req": {
+   "method": "GET",
+   "url": "/list/1,x,3"
+  }
  }
 ]

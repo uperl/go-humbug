@@ -27,7 +27,7 @@
         "message": "body at /age violates schema keyword \"type\"",
         "schema": {
           "column": 7,
-          "line": 129,
+          "line": 151,
           "pointer": "/properties/age/type",
           "relative": true
         },

@@ -54,13 +54,38 @@ header pairs, and the error/result split are as in the draft.
 - Order: request, then response; within a side by location, parameter name, instance pointer,
   schema pointer, code. IDs (`d1`…) are assigned after sorting.
 
+## Content-Encoding and body size
+
+Bodies in the protocol are the *decoded* HTTP body, but `Content-Encoding` is honored defensively:
+
+- `identity` or none: used as is.
+- `gzip` / `x-gzip` (alone): decompressed by Humbug, then validated. Spans and pointers refer to the
+  decompressed bytes. Decompressed size is capped at 64 MiB (`validation.MaxDecodedBodyBytes`).
+- Corrupt gzip: `body.decode` (`detail.content_encoding`), side `invalid`.
+- Over the cap: `validation.incomplete`, reason `body.too_large`.
+- Any other or stacked encoding (`br`, `deflate`, `gzip, br`): `validation.incomplete`, reason
+  `body.content_encoding_unsupported`. The library's findings on the undecoded bytes are discarded.
+
+No other size limits apply; an 8 MiB JSON body is validated and mapped in well under a second.
+
+## Known library limitations (pinned pb33f v0.16.1)
+
+- **Label and matrix path styles.** A primitive path parameter with `style: label` (`.5`) or
+  `style: matrix` (`;id=5`) is validated with the prefix still attached, so a valid request is
+  reported `parameter.invalid`. Humbug does not mask this. Fixtures F27 and F29 and
+  `TestPathParameterStyles` pin the behavior and fail if an upgrade changes it. Simple-style arrays
+  (`/list/1,2,3`) work.
+- **Schema file names.** Cross-file `$ref` schema locations give the line and column in the
+  referenced file, but the library does not expose which file, so `schema.uri` is omitted.
+- **Remote references** are disabled; a spec that needs one fails with `spec.invalid`, and a test
+  confirms no request is made.
+
 ## Known gaps
 
 - Missing-property names are only filled when unambiguous (not inside `oneOf`/`anyOf` branches).
 - Only JSON bodies are schema-validated; other media types make the side `incomplete`
   (`validation.incomplete`, reason `body.not_inspected`). Form, XML and multipart support is deferred.
-- Untested: `$ref` across files for schema locations, gzip and very large bodies, path parameters
-  with unusual styles, and security requirements.
+- Untested: security requirements, and path styles other than simple, label and matrix.
 - Repeated request headers are validated as pb33f sees them (fixture: the second `X-Request-Id`
   value changes the outcome); this is not normalized by Humbug.
 - 3.0 is covered by one transaction test (`nullable`, boolean `exclusiveMinimum`) only.
