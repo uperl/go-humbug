@@ -11,7 +11,9 @@ Status: MVP in progress. Requirements: `docs/humbug-sidecar-requirements-v0.1.md
 
 ## Build, test, run
 
-Requires Go 1.27+ (see `go.mod`).
+Requires Go 1.27.0 or newer (the `go` directive in `go.mod`). The test suite has been run on 1.27.0
+and 1.27.2. The pb33f dependencies are pinned in `go.mod`: `libopenapi` v0.41.6 and
+`libopenapi-validator` v0.16.1.
 
     make build      # bin/humbug
     make test       # vet + unit + golden protocol tests
